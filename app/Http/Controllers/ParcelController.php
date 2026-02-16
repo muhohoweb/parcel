@@ -52,7 +52,7 @@ class ParcelController extends Controller
             ]
         );
 
-        $recipient = User::firstOrCreate(
+        $recipient = User::query()->firstOrCreate(
             ['phone' => $validated['recipient_phone']],
             [
                 'first_name' => $validated['recipient_first_name'],
