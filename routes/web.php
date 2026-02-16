@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\MpesaController;
 use App\Http\Controllers\ParcelController;
+use App\Http\Controllers\WhatsAppController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
@@ -23,6 +24,10 @@ Route::get('/parcels', [ParcelController::class, 'index'])->name('parcels.index'
 Route::post('/parcels', [ParcelController::class, 'store'])->name('parcels.store');
 Route::put('/parcels/{parcel}', [ParcelController::class, 'update'])->name('parcels.update');
 Route::delete('/parcels/{parcel}', [ParcelController::class, 'destroy'])->name('parcels.destroy');
+
+//WhatsApp callbacks
+Route::match(['get', 'post'], '/whatsapp/webhook', [WhatsAppController::class, 'webhook']);
+Route::post('/whatsapp/send-dispatch', [WhatsAppController::class, 'sendDispatchNotification']);
 
 
 Route::post('/mpesa/callback', [MpesaController::class, 'callback'])->name('mpesa.callback');
