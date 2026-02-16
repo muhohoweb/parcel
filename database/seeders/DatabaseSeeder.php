@@ -9,7 +9,7 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        User::query()->truncate();
+//        User::query()->truncate();
         User::create([
             'first_name' => 'Lucy',
             'last_name' => 'Manyara',
