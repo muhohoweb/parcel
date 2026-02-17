@@ -61,3 +61,16 @@ jobs:
             **/vite.config.ts
             **/.env.example
             **/README.md
+
+      - name: Copy build files to public_html
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          local-dir: ./public/build/
+          server-dir: /domains/jetquickly.medicareers.co.ke/public_html/build/
+          timeout: 600000
+          log-level: verbose
