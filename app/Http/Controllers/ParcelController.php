@@ -15,7 +15,9 @@ class ParcelController extends Controller
 {
     public function index()
     {
-        $parcels = Parcel::with(['sender', 'recipient'])
+        $parcels = Parcel::with(['sender', 'recipient', 'mpesaTransactions' => function($query) {
+            $query->where('status', 'completed')->latest();
+        }])
             ->latest()
             ->get();
 
