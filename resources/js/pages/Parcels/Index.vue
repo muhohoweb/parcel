@@ -129,9 +129,9 @@ function getStatusColor(status) {
 
 function formatDate(date) {
   return new Date(date).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
+    month: 'short',
     day: 'numeric',
+    year: 'numeric',
     hour: '2-digit',
     minute: '2-digit'
   })
@@ -196,150 +196,128 @@ function formatDate(date) {
         </CardContent>
       </Card>
 
-      <!-- View Parcel Dialog -->
+      <!-- View Parcel Dialog - Compact Version -->
       <Dialog v-model:open="viewDialogOpen" :modal="true">
-        <DialogContent class="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle class="text-2xl font-bold flex items-center gap-2">
-              <Package class="h-6 w-6 text-orange-600" />
-              Parcel Details
-            </DialogTitle>
+        <DialogContent class="sm:max-w-[700px]">
+          <DialogHeader class="border-b pb-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <Package class="h-5 w-5 text-orange-600" />
+                <DialogTitle class="text-xl font-bold">Parcel Details</DialogTitle>
+              </div>
+              <span v-if="viewingParcel" :class="['inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold border', getStatusColor(viewingParcel.status)]">
+                {{ viewingParcel.status.replace('_', ' ').toUpperCase() }}
+              </span>
+            </div>
           </DialogHeader>
 
-          <div v-if="viewingParcel" class="space-y-6">
-            <!-- Tracking & Status -->
-            <div class="bg-gradient-to-r from-orange-50 to-orange-100 rounded-lg p-6 border border-orange-200">
-              <div class="flex items-center justify-between">
-                <div>
-                  <p class="text-sm text-gray-600 mb-1">Tracking Number</p>
-                  <p class="text-2xl font-bold font-mono text-orange-600">{{ viewingParcel.tracking_number }}</p>
+          <div v-if="viewingParcel" class="space-y-4 py-4">
+            <!-- Tracking Number -->
+            <div class="bg-orange-50 rounded-lg p-3 border border-orange-200">
+              <p class="text-xs text-gray-600 mb-0.5">Tracking Number</p>
+              <p class="text-lg font-bold font-mono text-orange-600">{{ viewingParcel.tracking_number }}</p>
+            </div>
+
+            <!-- Two Column Layout -->
+            <div class="grid grid-cols-2 gap-4">
+              <!-- Sender -->
+              <div class="space-y-2 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                <div class="flex items-center gap-1.5 mb-2">
+                  <User class="h-4 w-4 text-blue-600" />
+                  <h3 class="font-semibold text-sm text-blue-900">Sender</h3>
                 </div>
                 <div>
-                  <span :class="['inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold border', getStatusColor(viewingParcel.status)]">
-                    {{ viewingParcel.status.replace('_', ' ').toUpperCase() }}
-                  </span>
+                  <p class="text-xs text-gray-600">Name</p>
+                  <p class="text-sm font-semibold">{{ viewingParcel.sender.full_name }}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-600">Phone</p>
+                  <p class="text-sm font-mono">{{ viewingParcel.sender.phone }}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-600">National ID</p>
+                  <p class="text-sm font-mono">{{ viewingParcel.sender.national_id_no }}</p>
+                </div>
+                <div class="pt-1 border-t border-blue-200">
+                  <p class="text-xs text-gray-600 flex items-center gap-1">
+                    <MapPin class="h-3 w-3" />
+                    Origin
+                  </p>
+                  <p class="text-sm font-semibold text-blue-700">{{ viewingParcel.origin_town }}</p>
+                </div>
+              </div>
+
+              <!-- Recipient -->
+              <div class="space-y-2 p-3 bg-green-50 rounded-lg border border-green-100">
+                <div class="flex items-center gap-1.5 mb-2">
+                  <User class="h-4 w-4 text-green-600" />
+                  <h3 class="font-semibold text-sm text-green-900">Recipient</h3>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-600">Name</p>
+                  <p class="text-sm font-semibold">{{ viewingParcel.recipient.full_name }}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-600">Phone</p>
+                  <p class="text-sm font-mono">{{ viewingParcel.recipient.phone }}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-600">National ID</p>
+                  <p class="text-sm font-mono">{{ viewingParcel.recipient.national_id_no }}</p>
+                </div>
+                <div class="pt-1 border-t border-green-200">
+                  <p class="text-xs text-gray-600 flex items-center gap-1">
+                    <MapPin class="h-3 w-3" />
+                    Destination
+                  </p>
+                  <p class="text-sm font-semibold text-green-700">{{ viewingParcel.destination_town }}</p>
                 </div>
               </div>
             </div>
 
-            <div class="grid md:grid-cols-2 gap-6">
-              <!-- Sender Information -->
-              <Card class="border-2">
-                <CardHeader class="pb-3 bg-blue-50">
-                  <CardTitle class="text-lg flex items-center gap-2">
-                    <User class="h-5 w-5 text-blue-600" />
-                    Sender Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent class="pt-4 space-y-3">
-                  <div>
-                    <p class="text-xs text-gray-500 uppercase tracking-wide">Full Name</p>
-                    <p class="text-base font-semibold">{{ viewingParcel.sender.full_name }}</p>
-                  </div>
-                  <div>
-                    <p class="text-xs text-gray-500 uppercase tracking-wide">Phone Number</p>
-                    <p class="text-base font-mono">{{ viewingParcel.sender.phone }}</p>
-                  </div>
-                  <div>
-                    <p class="text-xs text-gray-500 uppercase tracking-wide">National ID</p>
-                    <p class="text-base font-mono">{{ viewingParcel.sender.national_id_no }}</p>
-                  </div>
-                  <div class="pt-2 border-t">
-                    <p class="text-xs text-gray-500 uppercase tracking-wide flex items-center gap-1">
-                      <MapPin class="h-3 w-3" />
-                      Origin
-                    </p>
-                    <p class="text-base font-semibold text-blue-600">{{ viewingParcel.origin_town }}</p>
-                  </div>
-                </CardContent>
-              </Card>
+            <!-- Address & Payment Row -->
+            <div class="grid grid-cols-2 gap-4">
+              <!-- Address -->
+              <div class="p-3 bg-purple-50 rounded-lg border border-purple-100">
+                <div class="flex items-center gap-1.5 mb-2">
+                  <MapPin class="h-4 w-4 text-purple-600" />
+                  <h3 class="font-semibold text-sm text-purple-900">Delivery Address</h3>
+                </div>
+                <p class="text-sm leading-relaxed">{{ viewingParcel.destination_address }}</p>
+              </div>
 
-              <!-- Recipient Information -->
-              <Card class="border-2">
-                <CardHeader class="pb-3 bg-green-50">
-                  <CardTitle class="text-lg flex items-center gap-2">
-                    <User class="h-5 w-5 text-green-600" />
-                    Recipient Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent class="pt-4 space-y-3">
+              <!-- Payment -->
+              <div class="p-3 bg-orange-50 rounded-lg border border-orange-100">
+                <div class="flex items-center gap-1.5 mb-2">
+                  <Banknote class="h-4 w-4 text-orange-600" />
+                  <h3 class="font-semibold text-sm text-orange-900">Payment</h3>
+                </div>
+                <div class="space-y-2">
                   <div>
-                    <p class="text-xs text-gray-500 uppercase tracking-wide">Full Name</p>
-                    <p class="text-base font-semibold">{{ viewingParcel.recipient.full_name }}</p>
+                    <p class="text-xs text-gray-600">Amount</p>
+                    <p class="text-lg font-bold text-orange-600">KES {{ parseFloat(viewingParcel.amount).toLocaleString() }}</p>
                   </div>
                   <div>
-                    <p class="text-xs text-gray-500 uppercase tracking-wide">Phone Number</p>
-                    <p class="text-base font-mono">{{ viewingParcel.recipient.phone }}</p>
-                  </div>
-                  <div>
-                    <p class="text-xs text-gray-500 uppercase tracking-wide">National ID</p>
-                    <p class="text-base font-mono">{{ viewingParcel.recipient.national_id_no }}</p>
-                  </div>
-                  <div class="pt-2 border-t">
-                    <p class="text-xs text-gray-500 uppercase tracking-wide flex items-center gap-1">
-                      <MapPin class="h-3 w-3" />
-                      Destination
-                    </p>
-                    <p class="text-base font-semibold text-green-600">{{ viewingParcel.destination_town }}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <!-- Delivery Address -->
-            <Card class="border-2 border-purple-200">
-              <CardHeader class="pb-3 bg-purple-50">
-                <CardTitle class="text-lg flex items-center gap-2">
-                  <MapPin class="h-5 w-5 text-purple-600" />
-                  Delivery Address
-                </CardTitle>
-              </CardHeader>
-              <CardContent class="pt-4">
-                <p class="text-base leading-relaxed">{{ viewingParcel.destination_address }}</p>
-              </CardContent>
-            </Card>
-
-            <!-- Payment Information -->
-            <Card class="border-2 border-orange-200">
-              <CardHeader class="pb-3 bg-orange-50">
-                <CardTitle class="text-lg flex items-center gap-2">
-                  <Banknote class="h-5 w-5 text-orange-600" />
-                  Payment Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent class="pt-4">
-                <div class="grid grid-cols-2 gap-4">
-                  <div>
-                    <p class="text-xs text-gray-500 uppercase tracking-wide">Amount</p>
-                    <p class="text-2xl font-bold text-orange-600">KES {{ parseFloat(viewingParcel.amount).toLocaleString() }}</p>
-                  </div>
-                  <div>
-                    <p class="text-xs text-gray-500 uppercase tracking-wide">M-Pesa Number</p>
-                    <p class="text-base font-mono">{{ viewingParcel.payment_phone }}</p>
+                    <p class="text-xs text-gray-600">M-Pesa Number</p>
+                    <p class="text-sm font-mono">{{ viewingParcel.payment_phone }}</p>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-
-            <!-- Timestamps -->
-            <div class="grid grid-cols-2 gap-4 pt-4 border-t">
-              <div>
-                <p class="text-xs text-gray-500 uppercase tracking-wide">Created</p>
-                <p class="text-sm">{{ formatDate(viewingParcel.created_at) }}</p>
-              </div>
-              <div>
-                <p class="text-xs text-gray-500 uppercase tracking-wide">Last Updated</p>
-                <p class="text-sm">{{ formatDate(viewingParcel.updated_at) }}</p>
               </div>
             </div>
 
-            <div class="flex justify-end gap-3 pt-4">
-              <Button type="button" variant="outline" @click="viewDialogOpen = false">
-                Close
-              </Button>
-              <Button type="button" @click="() => { viewDialogOpen = false; editParcel(viewingParcel); }">
-                Edit Parcel
-              </Button>
+            <!-- Footer with timestamps and actions -->
+            <div class="flex items-center justify-between pt-3 border-t">
+              <div class="text-xs text-gray-500">
+                Created: {{ formatDate(viewingParcel.created_at) }} • Updated: {{ formatDate(viewingParcel.updated_at) }}
+              </div>
+              <div class="flex gap-2">
+                <Button type="button" variant="outline" size="sm" @click="viewDialogOpen = false">
+                  Close
+                </Button>
+                <Button type="button" size="sm" @click="() => { viewDialogOpen = false; editParcel(viewingParcel); }">
+                  Edit Parcel
+                </Button>
+              </div>
             </div>
           </div>
         </DialogContent>
