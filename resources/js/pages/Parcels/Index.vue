@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Loader2, Eye, User, MapPin, Banknote, Package } from 'lucide-vue-next'
+import { Loader2, Eye, User, MapPin, Banknote, Package, CheckCircle2, Clock } from 'lucide-vue-next'
 import { ref } from 'vue'
 
 const props = defineProps({
@@ -120,11 +120,29 @@ function deleteParcel(parcelId) {
 function getStatusColor(status) {
   const colors = {
     'pending_payment': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-    'received': 'bg-blue-100 text-blue-800 border-blue-200',
+    'received': 'bg-green-100 text-green-800 border-green-200',
     'in_transit': 'bg-purple-100 text-purple-800 border-purple-200',
     'delivered': 'bg-green-100 text-green-800 border-green-200'
   }
   return colors[status] || 'bg-gray-100 text-gray-800 border-gray-200'
+}
+
+function getRowClass(parcel) {
+  // Highlight row if payment is completed
+  if (parcel.mpesa_transactions && parcel.mpesa_transactions.length > 0) {
+    return 'bg-green-50 hover:bg-green-100'
+  }
+  return ''
+}
+
+function isPaid(parcel) {
+  return parcel.mpesa_transactions && parcel.mpesa_transactions.length > 0
+}
+
+function getPaymentTransaction(parcel) {
+  return parcel.mpesa_transactions && parcel.mpesa_transactions.length > 0
+      ? parcel.mpesa_transactions[0]
+      : null
 }
 
 function formatDate(date) {
@@ -161,19 +179,30 @@ function formatDate(date) {
                 <TableHead>Recipient</TableHead>
                 <TableHead>Route</TableHead>
                 <TableHead>Amount</TableHead>
+                <TableHead>Payment</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              <TableRow v-for="parcel in parcels" :key="parcel.id">
+              <TableRow v-for="parcel in parcels" :key="parcel.id" :class="getRowClass(parcel)">
                 <TableCell class="font-mono text-sm">{{ parcel.tracking_number }}</TableCell>
                 <TableCell class="text-sm">{{ parcel.sender.full_name }}</TableCell>
                 <TableCell class="text-sm">{{ parcel.recipient.full_name }}</TableCell>
                 <TableCell class="text-sm">{{ parcel.origin_town }} → {{ parcel.destination_town }}</TableCell>
                 <TableCell class="text-sm">KES {{ parcel.amount }}</TableCell>
                 <TableCell class="text-sm">
-                  <span class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800">
+                  <div v-if="isPaid(parcel)" class="flex items-center gap-1 text-green-600">
+                    <CheckCircle2 class="h-4 w-4" />
+                    <span class="font-medium">{{ getPaymentTransaction(parcel).mpesa_receipt_number }}</span>
+                  </div>
+                  <div v-else class="flex items-center gap-1 text-yellow-600">
+                    <Clock class="h-4 w-4" />
+                    <span>Pending</span>
+                  </div>
+                </TableCell>
+                <TableCell class="text-sm">
+                  <span :class="['inline-flex items-center rounded-full px-2 py-1 text-xs font-medium', getStatusColor(parcel.status)]">
                     {{ parcel.status.replace('_', ' ') }}
                   </span>
                 </TableCell>
@@ -287,19 +316,35 @@ function formatDate(date) {
               </div>
 
               <!-- Payment -->
-              <div class="p-3 bg-orange-50 rounded-lg border border-orange-100">
+              <div :class="['p-3 rounded-lg border', isPaid(viewingParcel) ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-100']">
                 <div class="flex items-center gap-1.5 mb-2">
-                  <Banknote class="h-4 w-4 text-orange-600" />
-                  <h3 class="font-semibold text-sm text-orange-900">Payment</h3>
+                  <Banknote :class="['h-4 w-4', isPaid(viewingParcel) ? 'text-green-600' : 'text-orange-600']" />
+                  <h3 :class="['font-semibold text-sm', isPaid(viewingParcel) ? 'text-green-900' : 'text-orange-900']">Payment</h3>
                 </div>
                 <div class="space-y-2">
                   <div>
                     <p class="text-xs text-gray-600">Amount</p>
-                    <p class="text-lg font-bold text-orange-600">KES {{ parseFloat(viewingParcel.amount).toLocaleString() }}</p>
+                    <p :class="['text-lg font-bold', isPaid(viewingParcel) ? 'text-green-600' : 'text-orange-600']">
+                      KES {{ parseFloat(viewingParcel.amount).toLocaleString() }}
+                    </p>
                   </div>
                   <div>
                     <p class="text-xs text-gray-600">M-Pesa Number</p>
                     <p class="text-sm font-mono">{{ viewingParcel.payment_phone }}</p>
+                  </div>
+                  <div v-if="isPaid(viewingParcel)" class="pt-2 border-t border-green-200">
+                    <div class="flex items-center gap-1 text-green-600 mb-1">
+                      <CheckCircle2 class="h-4 w-4" />
+                      <p class="text-xs font-semibold">PAID</p>
+                    </div>
+                    <p class="text-xs text-gray-600">Receipt Number</p>
+                    <p class="text-sm font-mono font-bold text-green-700">{{ getPaymentTransaction(viewingParcel).mpesa_receipt_number }}</p>
+                  </div>
+                  <div v-else class="pt-2 border-t border-orange-200">
+                    <div class="flex items-center gap-1 text-yellow-600">
+                      <Clock class="h-4 w-4" />
+                      <p class="text-xs font-semibold">PENDING PAYMENT</p>
+                    </div>
                   </div>
                 </div>
               </div>
