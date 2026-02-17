@@ -15,7 +15,8 @@ class Parcel extends Model
         'destination_town',
         'destination_address',
         'amount',
-        'status'
+        'status',
+        'payment_phone' // Add this line
     ];
 
     protected static function boot()
@@ -35,5 +36,10 @@ class Parcel extends Model
     public function recipient()
     {
         return $this->belongsTo(User::class, 'recipient_id');
+    }
+
+    public function mpesaTransactions()
+    {
+        return $this->hasMany(MpesaTransaction::class);
     }
 }
