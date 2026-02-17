@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Loader2 } from 'lucide-vue-next'
 import { ref } from 'vue'
 
 const props = defineProps({
@@ -68,7 +69,8 @@ function submit() {
     onSuccess: () => {
       form.reset()
       createDialogOpen.value = false
-    }
+    },
+    preserveScroll: true
   })
 }
 
@@ -97,7 +99,8 @@ function updateParcel() {
       editDialogOpen.value = false
       editForm.reset()
       editingParcel.value = null
-    }
+    },
+    preserveScroll: true
   })
 }
 
@@ -118,7 +121,9 @@ function deleteParcel(parcelId) {
       <Card class="shadow-md">
         <CardHeader class="flex flex-row items-center justify-between">
           <CardTitle>All Parcels</CardTitle>
-          <Button @click="createDialogOpen = true">Add Parcel</Button>
+          <Button @click="createDialogOpen = true" :disabled="form.processing">
+            Add Parcel
+          </Button>
         </CardHeader>
         <CardContent>
           <Table>
@@ -147,8 +152,12 @@ function deleteParcel(parcelId) {
                 </TableCell>
                 <TableCell>
                   <div class="flex gap-2">
-                    <Button @click="editParcel(parcel)" size="sm" variant="outline">Edit</Button>
-                    <Button @click="deleteParcel(parcel.id)" size="sm" variant="destructive">Delete</Button>
+                    <Button @click="editParcel(parcel)" size="sm" variant="outline" :disabled="editForm.processing">
+                      Edit
+                    </Button>
+                    <Button @click="deleteParcel(parcel.id)" size="sm" variant="destructive">
+                      Delete
+                    </Button>
                   </div>
                 </TableCell>
               </TableRow>
@@ -174,28 +183,28 @@ function deleteParcel(parcelId) {
                 <div class="grid grid-cols-2 gap-3">
                   <div class="space-y-1.5">
                     <Label class="text-sm">First Name</Label>
-                    <Input v-model="form.sender_first_name" required />
+                    <Input v-model="form.sender_first_name" :disabled="form.processing" required />
                   </div>
                   <div class="space-y-1.5">
                     <Label class="text-sm">Last Name</Label>
-                    <Input v-model="form.sender_last_name" required />
+                    <Input v-model="form.sender_last_name" :disabled="form.processing" required />
                   </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
                   <div class="space-y-1.5">
                     <Label class="text-sm">Phone</Label>
-                    <Input v-model="form.sender_phone" required />
+                    <Input v-model="form.sender_phone" :disabled="form.processing" required />
                   </div>
                   <div class="space-y-1.5">
                     <Label class="text-sm">National ID</Label>
-                    <Input v-model="form.sender_national_id" required />
+                    <Input v-model="form.sender_national_id" :disabled="form.processing" required />
                   </div>
                 </div>
 
                 <div class="space-y-1.5">
                   <Label class="text-sm">Origin Town</Label>
-                  <Input v-model="form.origin_town" required />
+                  <Input v-model="form.origin_town" :disabled="form.processing" required />
                 </div>
               </div>
 
@@ -206,33 +215,33 @@ function deleteParcel(parcelId) {
                 <div class="grid grid-cols-2 gap-3">
                   <div class="space-y-1.5">
                     <Label class="text-sm">First Name</Label>
-                    <Input v-model="form.recipient_first_name" required />
+                    <Input v-model="form.recipient_first_name" :disabled="form.processing" required />
                   </div>
                   <div class="space-y-1.5">
                     <Label class="text-sm">Last Name</Label>
-                    <Input v-model="form.recipient_last_name" required />
+                    <Input v-model="form.recipient_last_name" :disabled="form.processing" required />
                   </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
                   <div class="space-y-1.5">
                     <Label class="text-sm">Phone</Label>
-                    <Input v-model="form.recipient_phone" required />
+                    <Input v-model="form.recipient_phone" :disabled="form.processing" required />
                   </div>
                   <div class="space-y-1.5">
                     <Label class="text-sm">National ID</Label>
-                    <Input v-model="form.recipient_national_id" required />
+                    <Input v-model="form.recipient_national_id" :disabled="form.processing" required />
                   </div>
                 </div>
 
                 <div class="space-y-1.5">
                   <Label class="text-sm">Destination Town</Label>
-                  <Input v-model="form.destination_town" required />
+                  <Input v-model="form.destination_town" :disabled="form.processing" required />
                 </div>
 
                 <div class="space-y-1.5">
                   <Label class="text-sm">Destination Address</Label>
-                  <Textarea v-model="form.destination_address" rows="3" required />
+                  <Textarea v-model="form.destination_address" :disabled="form.processing" rows="3" required />
                 </div>
               </div>
             </div>
@@ -243,24 +252,29 @@ function deleteParcel(parcelId) {
               <div class="grid grid-cols-2 gap-4">
                 <div class="space-y-1.5">
                   <Label class="text-sm">Amount (KES)</Label>
-                  <Input v-model="form.amount" type="number" step="0.01" required />
+                  <Input v-model="form.amount" type="number" step="0.01" :disabled="form.processing" required />
                 </div>
                 <div class="space-y-1.5">
                   <Label class="text-sm">M-Pesa Phone Number</Label>
-                  <Input v-model="form.payment_phone" placeholder="0712345678" required />
+                  <Input v-model="form.payment_phone" placeholder="0712345678" :disabled="form.processing" required />
                 </div>
               </div>
             </div>
 
             <div class="flex justify-end gap-3 pt-2">
-              <Button type="button" variant="outline" @click="createDialogOpen = false">Cancel</Button>
-              <Button type="submit" size="lg">Save Parcel</Button>
+              <Button type="button" variant="outline" @click="createDialogOpen = false" :disabled="form.processing">
+                Cancel
+              </Button>
+              <Button type="submit" size="lg" :disabled="form.processing">
+                <Loader2 v-if="form.processing" class="mr-2 h-4 w-4 animate-spin" />
+                {{ form.processing ? 'Saving...' : 'Save Parcel' }}
+              </Button>
             </div>
           </form>
         </DialogContent>
       </Dialog>
 
-      <!-- Edit Parcel Dialog - EXACTLY THE SAME -->
+      <!-- Edit Parcel Dialog -->
       <Dialog v-model:open="editDialogOpen" :modal="true">
         <DialogContent class="sm:max-w-[900px] max-h-[90vh] overflow-y-auto" @interact-outside="(e) => e.preventDefault()">
           <DialogHeader>
@@ -277,28 +291,28 @@ function deleteParcel(parcelId) {
                 <div class="grid grid-cols-2 gap-3">
                   <div class="space-y-1.5">
                     <Label class="text-sm">First Name</Label>
-                    <Input v-model="editForm.sender_first_name" required />
+                    <Input v-model="editForm.sender_first_name" :disabled="editForm.processing" required />
                   </div>
                   <div class="space-y-1.5">
                     <Label class="text-sm">Last Name</Label>
-                    <Input v-model="editForm.sender_last_name" required />
+                    <Input v-model="editForm.sender_last_name" :disabled="editForm.processing" required />
                   </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
                   <div class="space-y-1.5">
                     <Label class="text-sm">Phone</Label>
-                    <Input v-model="editForm.sender_phone" required />
+                    <Input v-model="editForm.sender_phone" :disabled="editForm.processing" required />
                   </div>
                   <div class="space-y-1.5">
                     <Label class="text-sm">National ID</Label>
-                    <Input v-model="editForm.sender_national_id" required />
+                    <Input v-model="editForm.sender_national_id" :disabled="editForm.processing" required />
                   </div>
                 </div>
 
                 <div class="space-y-1.5">
                   <Label class="text-sm">Origin Town</Label>
-                  <Input v-model="editForm.origin_town" required />
+                  <Input v-model="editForm.origin_town" :disabled="editForm.processing" required />
                 </div>
               </div>
 
@@ -309,33 +323,33 @@ function deleteParcel(parcelId) {
                 <div class="grid grid-cols-2 gap-3">
                   <div class="space-y-1.5">
                     <Label class="text-sm">First Name</Label>
-                    <Input v-model="editForm.recipient_first_name" required />
+                    <Input v-model="editForm.recipient_first_name" :disabled="editForm.processing" required />
                   </div>
                   <div class="space-y-1.5">
                     <Label class="text-sm">Last Name</Label>
-                    <Input v-model="editForm.recipient_last_name" required />
+                    <Input v-model="editForm.recipient_last_name" :disabled="editForm.processing" required />
                   </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
                   <div class="space-y-1.5">
                     <Label class="text-sm">Phone</Label>
-                    <Input v-model="editForm.recipient_phone" required />
+                    <Input v-model="editForm.recipient_phone" :disabled="editForm.processing" required />
                   </div>
                   <div class="space-y-1.5">
                     <Label class="text-sm">National ID</Label>
-                    <Input v-model="editForm.recipient_national_id" required />
+                    <Input v-model="editForm.recipient_national_id" :disabled="editForm.processing" required />
                   </div>
                 </div>
 
                 <div class="space-y-1.5">
                   <Label class="text-sm">Destination Town</Label>
-                  <Input v-model="editForm.destination_town" required />
+                  <Input v-model="editForm.destination_town" :disabled="editForm.processing" required />
                 </div>
 
                 <div class="space-y-1.5">
                   <Label class="text-sm">Destination Address</Label>
-                  <Textarea v-model="editForm.destination_address" rows="3" required />
+                  <Textarea v-model="editForm.destination_address" :disabled="editForm.processing" rows="3" required />
                 </div>
               </div>
             </div>
@@ -346,15 +360,15 @@ function deleteParcel(parcelId) {
               <div class="grid grid-cols-3 gap-4">
                 <div class="space-y-1.5">
                   <Label class="text-sm">Amount (KES)</Label>
-                  <Input v-model="editForm.amount" type="number" step="0.01" required />
+                  <Input v-model="editForm.amount" type="number" step="0.01" :disabled="editForm.processing" required />
                 </div>
                 <div class="space-y-1.5">
                   <Label class="text-sm">M-Pesa Phone Number</Label>
-                  <Input v-model="editForm.payment_phone" placeholder="0712345678" required />
+                  <Input v-model="editForm.payment_phone" placeholder="0712345678" :disabled="editForm.processing" required />
                 </div>
                 <div class="space-y-1.5">
                   <Label class="text-sm">Status</Label>
-                  <Select v-model="editForm.status">
+                  <Select v-model="editForm.status" :disabled="editForm.processing">
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -370,8 +384,13 @@ function deleteParcel(parcelId) {
             </div>
 
             <div class="flex justify-end gap-3 pt-2">
-              <Button type="button" variant="outline" @click="editDialogOpen = false">Cancel</Button>
-              <Button type="submit" size="lg">Update Parcel</Button>
+              <Button type="button" variant="outline" @click="editDialogOpen = false" :disabled="editForm.processing">
+                Cancel
+              </Button>
+              <Button type="submit" size="lg" :disabled="editForm.processing">
+                <Loader2 v-if="editForm.processing" class="mr-2 h-4 w-4 animate-spin" />
+                {{ editForm.processing ? 'Updating...' : 'Update Parcel' }}
+              </Button>
             </div>
           </form>
         </DialogContent>

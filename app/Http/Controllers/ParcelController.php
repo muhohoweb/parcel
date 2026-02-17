@@ -8,6 +8,7 @@ use App\Models\MpesaTransaction;
 use Iankumu\Mpesa\Facades\Mpesa;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class ParcelController extends Controller
@@ -43,38 +44,61 @@ class ParcelController extends Controller
             'payment_phone' => 'required|string|max:15',
         ]);
 
-        $sender = User::firstOrCreate(
-            ['phone' => $validated['sender_phone']],
-            [
-                'first_name' => $validated['sender_first_name'],
-                'last_name' => $validated['sender_last_name'],
-                'national_id_no' => $validated['sender_national_id'],
-            ]
-        );
+        // Check for duplicate submission in last 5 minutes
+        $recentDuplicate = Parcel::where('payment_phone', $validated['payment_phone'])
+            ->where('amount', $validated['amount'])
+            ->where('destination_town', $validated['destination_town'])
+            ->where('created_at', '>', now()->subMinutes(5))
+            ->exists();
 
-        $recipient = User::query()->firstOrCreate(
-            ['phone' => $validated['recipient_phone']],
-            [
-                'first_name' => $validated['recipient_first_name'],
-                'last_name' => $validated['recipient_last_name'],
-                'national_id_no' => $validated['recipient_national_id'],
-            ]
-        );
+        if ($recentDuplicate) {
+            return back()->withErrors(['duplicate' => 'A similar parcel was just created. Please wait a moment before submitting again.']);
+        }
 
-        $parcel = Parcel::create([
-            'sender_id' => $sender->id,
-            'origin_town' => $validated['origin_town'],
-            'recipient_id' => $recipient->id,
-            'destination_town' => $validated['destination_town'],
-            'destination_address' => $validated['destination_address'],
-            'amount' => $validated['amount'],
-            'payment_phone' => $validated['payment_phone'],
-        ]);
+        // Use database transaction
+        DB::beginTransaction();
 
-        // Initiate M-Pesa STK Push
-        $stkResult = $this->initiateStkPush($parcel, $validated['payment_phone'], $validated['amount']);
+        try {
+            $sender = User::firstOrCreate(
+                ['phone' => $validated['sender_phone']],
+                [
+                    'first_name' => $validated['sender_first_name'],
+                    'last_name' => $validated['sender_last_name'],
+                    'national_id_no' => $validated['sender_national_id'],
+                ]
+            );
 
-        return back()->with('success', $stkResult['message']);
+            $recipient = User::firstOrCreate(
+                ['phone' => $validated['recipient_phone']],
+                [
+                    'first_name' => $validated['recipient_first_name'],
+                    'last_name' => $validated['recipient_last_name'],
+                    'national_id_no' => $validated['recipient_national_id'],
+                ]
+            );
+
+            $parcel = Parcel::create([
+                'sender_id' => $sender->id,
+                'origin_town' => $validated['origin_town'],
+                'recipient_id' => $recipient->id,
+                'destination_town' => $validated['destination_town'],
+                'destination_address' => $validated['destination_address'],
+                'amount' => $validated['amount'],
+                'payment_phone' => $validated['payment_phone'],
+            ]);
+
+            // Initiate M-Pesa STK Push
+            $stkResult = $this->initiateStkPush($parcel, $validated['payment_phone'], $validated['amount']);
+
+            DB::commit();
+
+            return back()->with('success', $stkResult['message']);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Parcel Creation Error: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Failed to create parcel. Please try again.']);
+        }
     }
 
     private function initiateStkPush(Parcel $parcel, string $phoneNumber, float $amount): array
@@ -152,57 +176,68 @@ class ParcelController extends Controller
             'status' => 'required|in:pending_payment,received,in_transit,delivered',
         ]);
 
-        // Update or create sender
-        $sender = User::firstOrCreate(
-            ['phone' => $validated['sender_phone']],
-            [
-                'first_name' => $validated['sender_first_name'],
-                'last_name' => $validated['sender_last_name'],
-                'national_id_no' => $validated['sender_national_id'],
-            ]
-        );
+        DB::beginTransaction();
 
-        // If sender exists, update their details
-        if ($sender->wasRecentlyCreated === false) {
-            $sender->update([
-                'first_name' => $validated['sender_first_name'],
-                'last_name' => $validated['sender_last_name'],
-                'national_id_no' => $validated['sender_national_id'],
+        try {
+            // Update or create sender
+            $sender = User::firstOrCreate(
+                ['phone' => $validated['sender_phone']],
+                [
+                    'first_name' => $validated['sender_first_name'],
+                    'last_name' => $validated['sender_last_name'],
+                    'national_id_no' => $validated['sender_national_id'],
+                ]
+            );
+
+            // If sender exists, update their details
+            if ($sender->wasRecentlyCreated === false) {
+                $sender->update([
+                    'first_name' => $validated['sender_first_name'],
+                    'last_name' => $validated['sender_last_name'],
+                    'national_id_no' => $validated['sender_national_id'],
+                ]);
+            }
+
+            // Update or create recipient
+            $recipient = User::firstOrCreate(
+                ['phone' => $validated['recipient_phone']],
+                [
+                    'first_name' => $validated['recipient_first_name'],
+                    'last_name' => $validated['recipient_last_name'],
+                    'national_id_no' => $validated['recipient_national_id'],
+                ]
+            );
+
+            // If recipient exists, update their details
+            if ($recipient->wasRecentlyCreated === false) {
+                $recipient->update([
+                    'first_name' => $validated['recipient_first_name'],
+                    'last_name' => $validated['recipient_last_name'],
+                    'national_id_no' => $validated['recipient_national_id'],
+                ]);
+            }
+
+            // Update parcel
+            $parcel->update([
+                'sender_id' => $sender->id,
+                'origin_town' => $validated['origin_town'],
+                'recipient_id' => $recipient->id,
+                'destination_town' => $validated['destination_town'],
+                'destination_address' => $validated['destination_address'],
+                'amount' => $validated['amount'],
+                'payment_phone' => $validated['payment_phone'],
+                'status' => $validated['status'],
             ]);
+
+            DB::commit();
+
+            return back()->with('success', 'Parcel updated successfully');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Parcel Update Error: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Failed to update parcel. Please try again.']);
         }
-
-        // Update or create recipient
-        $recipient = User::firstOrCreate(
-            ['phone' => $validated['recipient_phone']],
-            [
-                'first_name' => $validated['recipient_first_name'],
-                'last_name' => $validated['recipient_last_name'],
-                'national_id_no' => $validated['recipient_national_id'],
-            ]
-        );
-
-        // If recipient exists, update their details
-        if ($recipient->wasRecentlyCreated === false) {
-            $recipient->update([
-                'first_name' => $validated['recipient_first_name'],
-                'last_name' => $validated['recipient_last_name'],
-                'national_id_no' => $validated['recipient_national_id'],
-            ]);
-        }
-
-        // Update parcel
-        $parcel->update([
-            'sender_id' => $sender->id,
-            'origin_town' => $validated['origin_town'],
-            'recipient_id' => $recipient->id,
-            'destination_town' => $validated['destination_town'],
-            'destination_address' => $validated['destination_address'],
-            'amount' => $validated['amount'],
-            'payment_phone' => $validated['payment_phone'],
-            'status' => $validated['status'],
-        ]);
-
-        return back();
     }
 
     public function destroy(Parcel $parcel)
