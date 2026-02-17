@@ -9,10 +9,16 @@ use Iankumu\Mpesa\Facades\Mpesa;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class ParcelController extends Controller
 {
+    private function getUploadPath()
+    {
+        return $_SERVER['DOCUMENT_ROOT'] . '/uploads';
+    }
+
     public function index()
     {
         $parcels = Parcel::with(['sender', 'recipient', 'mpesaTransactions' => function($query) {
@@ -41,6 +47,9 @@ class ParcelController extends Controller
             'recipient_national_id' => 'required|string|max:20',
             'destination_town' => 'required|string|max:255',
             'destination_address' => 'required|string',
+
+            'description' => 'nullable|string',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
 
             'amount' => 'required|numeric|min:0',
             'payment_phone' => 'required|string|max:15',
@@ -79,12 +88,20 @@ class ParcelController extends Controller
                 ]
             );
 
+            // Handle image upload
+            $imagePath = null;
+            if ($request->hasFile('image')) {
+                $imagePath = $this->uploadImage($request->file('image'));
+            }
+
             $parcel = Parcel::create([
                 'sender_id' => $sender->id,
                 'origin_town' => $validated['origin_town'],
                 'recipient_id' => $recipient->id,
                 'destination_town' => $validated['destination_town'],
                 'destination_address' => $validated['destination_address'],
+                'description' => $validated['description'],
+                'image_path' => $imagePath,
                 'amount' => $validated['amount'],
                 'payment_phone' => $validated['payment_phone'],
             ]);
@@ -101,6 +118,21 @@ class ParcelController extends Controller
             Log::error('Parcel Creation Error: ' . $e->getMessage());
             return back()->withErrors(['error' => 'Failed to create parcel. Please try again.']);
         }
+    }
+
+    private function uploadImage($image): string
+    {
+        $uploadPath = $this->getUploadPath();
+
+        // Ensure directory exists
+        if (!file_exists($uploadPath)) {
+            mkdir($uploadPath, 0755, true);
+        }
+
+        $filename = time() . '_' . Str::random(20) . '.' . $image->getClientOriginalExtension();
+        $image->move($uploadPath, $filename);
+
+        return 'uploads/' . $filename;
     }
 
     private function initiateStkPush(Parcel $parcel, string $phoneNumber, float $amount): array
@@ -173,6 +205,10 @@ class ParcelController extends Controller
             'destination_town' => 'required|string|max:255',
             'destination_address' => 'required|string',
 
+            'description' => 'nullable|string',
+            'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'remove_image' => 'nullable|boolean',
+
             'amount' => 'required|numeric|min:0',
             'payment_phone' => 'required|string|max:15',
             'status' => 'required|in:pending_payment,received,in_transit,delivered',
@@ -191,7 +227,6 @@ class ParcelController extends Controller
                 ]
             );
 
-            // If sender exists, update their details
             if ($sender->wasRecentlyCreated === false) {
                 $sender->update([
                     'first_name' => $validated['sender_first_name'],
@@ -210,13 +245,38 @@ class ParcelController extends Controller
                 ]
             );
 
-            // If recipient exists, update their details
             if ($recipient->wasRecentlyCreated === false) {
                 $recipient->update([
                     'first_name' => $validated['recipient_first_name'],
                     'last_name' => $validated['recipient_last_name'],
                     'national_id_no' => $validated['recipient_national_id'],
                 ]);
+            }
+
+            // Handle image
+            $imagePath = $parcel->image_path;
+
+            // Remove old image if requested
+            if (!empty($validated['remove_image']) && $parcel->image_path) {
+                $uploadPath = $this->getUploadPath();
+                $oldImagePath = $uploadPath . '/' . basename($parcel->image_path);
+                if (file_exists($oldImagePath)) {
+                    unlink($oldImagePath);
+                }
+                $imagePath = null;
+            }
+
+            // Upload new image
+            if ($request->hasFile('image')) {
+                // Delete old image if exists
+                if ($parcel->image_path) {
+                    $uploadPath = $this->getUploadPath();
+                    $oldImagePath = $uploadPath . '/' . basename($parcel->image_path);
+                    if (file_exists($oldImagePath)) {
+                        unlink($oldImagePath);
+                    }
+                }
+                $imagePath = $this->uploadImage($request->file('image'));
             }
 
             // Update parcel
@@ -226,6 +286,8 @@ class ParcelController extends Controller
                 'recipient_id' => $recipient->id,
                 'destination_town' => $validated['destination_town'],
                 'destination_address' => $validated['destination_address'],
+                'description' => $validated['description'],
+                'image_path' => $imagePath,
                 'amount' => $validated['amount'],
                 'payment_phone' => $validated['payment_phone'],
                 'status' => $validated['status'],
@@ -244,6 +306,15 @@ class ParcelController extends Controller
 
     public function destroy(Parcel $parcel)
     {
+        // Delete image if exists
+        if ($parcel->image_path) {
+            $uploadPath = $this->getUploadPath();
+            $imagePath = $uploadPath . '/' . basename($parcel->image_path);
+            if (file_exists($imagePath)) {
+                unlink($imagePath);
+            }
+        }
+
         $parcel->delete();
 
         return back();

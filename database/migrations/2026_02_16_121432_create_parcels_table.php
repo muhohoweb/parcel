@@ -19,6 +19,9 @@ return new class extends Migration
             $table->string('destination_town');
             $table->text('destination_address');
 
+            $table->text('description')->nullable();
+            $table->string('image_path')->nullable();
+
             $table->decimal('amount', 10, 2);
             $table->string('payment_phone', 15);
             $table->enum('status', ['pending_payment', 'received', 'in_transit', 'delivered'])->default('pending_payment');
@@ -29,6 +32,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('Parcels');
+        Schema::dropIfExists('parcels');
     }
 };

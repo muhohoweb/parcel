@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Loader2, Eye, User, MapPin, Banknote, Package, CheckCircle2, Clock } from 'lucide-vue-next'
+import { Loader2, Eye, User, MapPin, Banknote, Package, CheckCircle2, Clock, X, Upload, ImageIcon } from 'lucide-vue-next'
 import { ref } from 'vue'
 
 const props = defineProps({
@@ -32,6 +32,8 @@ const editDialogOpen = ref(false)
 const viewDialogOpen = ref(false)
 const editingParcel = ref(null)
 const viewingParcel = ref(null)
+const imagePreview = ref(null)
+const editImagePreview = ref(null)
 
 const form = useForm({
   sender_first_name: '',
@@ -45,6 +47,8 @@ const form = useForm({
   recipient_national_id: '',
   destination_town: '',
   destination_address: '',
+  description: '',
+  image: null,
   amount: '',
   payment_phone: ''
 })
@@ -61,15 +65,59 @@ const editForm = useForm({
   recipient_national_id: '',
   destination_town: '',
   destination_address: '',
+  description: '',
+  image: null,
+  remove_image: false,
   amount: '',
   payment_phone: '',
   status: ''
 })
 
+function handleImageChange(event) {
+  const file = event.target.files[0]
+  if (file) {
+    form.image = file
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      imagePreview.value = e.target.result
+    }
+    reader.readAsDataURL(file)
+  }
+}
+
+function removeImage() {
+  form.image = null
+  imagePreview.value = null
+  const fileInput = document.getElementById('create-image-input')
+  if (fileInput) fileInput.value = ''
+}
+
+function handleEditImageChange(event) {
+  const file = event.target.files[0]
+  if (file) {
+    editForm.image = file
+    editForm.remove_image = false
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      editImagePreview.value = e.target.result
+    }
+    reader.readAsDataURL(file)
+  }
+}
+
+function removeEditImage() {
+  editForm.image = null
+  editForm.remove_image = true
+  editImagePreview.value = null
+  const fileInput = document.getElementById('edit-image-input')
+  if (fileInput) fileInput.value = ''
+}
+
 function submit() {
   form.post('/parcels', {
     onSuccess: () => {
       form.reset()
+      imagePreview.value = null
       createDialogOpen.value = false
     },
     preserveScroll: true
@@ -94,9 +142,12 @@ function editParcel(parcel) {
   editForm.recipient_national_id = parcel.recipient.national_id_no
   editForm.destination_town = parcel.destination_town
   editForm.destination_address = parcel.destination_address
+  editForm.description = parcel.description || ''
   editForm.amount = parcel.amount
   editForm.payment_phone = parcel.payment_phone
   editForm.status = parcel.status
+  editForm.remove_image = false
+  editImagePreview.value = parcel.image_path ? `/${parcel.image_path}` : null
   editDialogOpen.value = true
 }
 
@@ -105,6 +156,7 @@ function updateParcel() {
     onSuccess: () => {
       editDialogOpen.value = false
       editForm.reset()
+      editImagePreview.value = null
       editingParcel.value = null
     },
     preserveScroll: true
@@ -128,7 +180,6 @@ function getStatusColor(status) {
 }
 
 function getRowClass(parcel) {
-  // Highlight row if payment is completed
   if (parcel.mpesa_transactions && parcel.mpesa_transactions.length > 0) {
     return 'bg-green-50 hover:bg-green-100'
   }
@@ -225,8 +276,8 @@ function formatDate(date) {
         </CardContent>
       </Card>
 
-      <!-- View Parcel Dialog - Compact Version -->
-      <Dialog v-model:open="viewDialogOpen" :modal="true" @interact-outside="(e) => e.preventDefault()">
+      <!-- View Parcel Dialog -->
+      <Dialog v-model:open="viewDialogOpen" :modal="true">
         <DialogContent class="sm:max-w-[700px]">
           <DialogHeader class="border-b pb-3">
             <div class="flex items-center justify-between">
@@ -245,6 +296,18 @@ function formatDate(date) {
             <div class="bg-orange-50 rounded-lg p-3 border border-orange-200">
               <p class="text-xs text-gray-600 mb-0.5">Tracking Number</p>
               <p class="text-lg font-bold font-mono text-orange-600">{{ viewingParcel.tracking_number }}</p>
+            </div>
+
+            <!-- Description and Image -->
+            <div v-if="viewingParcel.description || viewingParcel.image_path" class="space-y-3">
+              <div v-if="viewingParcel.description" class="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <p class="text-xs text-gray-600 mb-1">Description</p>
+                <p class="text-sm">{{ viewingParcel.description }}</p>
+              </div>
+              <div v-if="viewingParcel.image_path" class="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <p class="text-xs text-gray-600 mb-2">Parcel Image</p>
+                <img :src="`/${viewingParcel.image_path}`" alt="Parcel" class="rounded-lg max-h-48 w-auto" />
+              </div>
             </div>
 
             <!-- Two Column Layout -->
@@ -350,7 +413,7 @@ function formatDate(date) {
               </div>
             </div>
 
-            <!-- Footer with timestamps and actions -->
+            <!-- Footer -->
             <div class="flex items-center justify-between pt-3 border-t">
               <div class="text-xs text-gray-500">
                 Created: {{ formatDate(viewingParcel.created_at) }} • Updated: {{ formatDate(viewingParcel.updated_at) }}
@@ -377,11 +440,9 @@ function formatDate(date) {
 
           <form @submit.prevent="submit" class="space-y-6">
             <div class="grid md:grid-cols-2 gap-6">
-
               <!-- Sender Details -->
               <div class="space-y-4 border rounded-lg p-4">
                 <h3 class="font-semibold text-base">Sender Details</h3>
-
                 <div class="grid grid-cols-2 gap-3">
                   <div class="space-y-1.5">
                     <Label class="text-sm">First Name</Label>
@@ -392,7 +453,6 @@ function formatDate(date) {
                     <Input v-model="form.sender_last_name" :disabled="form.processing" required />
                   </div>
                 </div>
-
                 <div class="grid grid-cols-2 gap-3">
                   <div class="space-y-1.5">
                     <Label class="text-sm">Phone</Label>
@@ -403,7 +463,6 @@ function formatDate(date) {
                     <Input v-model="form.sender_national_id" :disabled="form.processing" required />
                   </div>
                 </div>
-
                 <div class="space-y-1.5">
                   <Label class="text-sm">Origin Town</Label>
                   <Input v-model="form.origin_town" :disabled="form.processing" required />
@@ -413,7 +472,6 @@ function formatDate(date) {
               <!-- Recipient Details -->
               <div class="space-y-4 border rounded-lg p-4">
                 <h3 class="font-semibold text-base">Recipient Details</h3>
-
                 <div class="grid grid-cols-2 gap-3">
                   <div class="space-y-1.5">
                     <Label class="text-sm">First Name</Label>
@@ -424,7 +482,6 @@ function formatDate(date) {
                     <Input v-model="form.recipient_last_name" :disabled="form.processing" required />
                   </div>
                 </div>
-
                 <div class="grid grid-cols-2 gap-3">
                   <div class="space-y-1.5">
                     <Label class="text-sm">Phone</Label>
@@ -435,15 +492,57 @@ function formatDate(date) {
                     <Input v-model="form.recipient_national_id" :disabled="form.processing" required />
                   </div>
                 </div>
-
                 <div class="space-y-1.5">
                   <Label class="text-sm">Destination Town</Label>
                   <Input v-model="form.destination_town" :disabled="form.processing" required />
                 </div>
-
                 <div class="space-y-1.5">
                   <Label class="text-sm">Destination Address</Label>
                   <Textarea v-model="form.destination_address" :disabled="form.processing" rows="3" required />
+                </div>
+              </div>
+            </div>
+
+            <!-- Parcel Details -->
+            <div class="space-y-4 border rounded-lg p-4">
+              <h3 class="font-semibold text-base">Parcel Details</h3>
+              <div class="space-y-4">
+                <div class="space-y-1.5">
+                  <Label class="text-sm">Description (Optional)</Label>
+                  <Textarea v-model="form.description" :disabled="form.processing" rows="3" placeholder="Describe the parcel contents..." />
+                </div>
+                <div class="space-y-1.5">
+                  <Label class="text-sm">Parcel Image (Optional)</Label>
+                  <div class="space-y-2">
+                    <div v-if="imagePreview" class="relative inline-block">
+                      <img :src="imagePreview" alt="Preview" class="h-32 w-auto rounded-lg border" />
+                      <Button
+                          type="button"
+                          size="sm"
+                          variant="destructive"
+                          class="absolute -top-2 -right-2"
+                          @click="removeImage"
+                          :disabled="form.processing"
+                      >
+                        <X class="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <div v-else class="border-2 border-dashed rounded-lg p-4">
+                      <label for="create-image-input" class="cursor-pointer flex flex-col items-center gap-2">
+                        <Upload class="h-8 w-8 text-gray-400" />
+                        <span class="text-sm text-gray-600">Click to upload image</span>
+                        <span class="text-xs text-gray-400">JPG, PNG, WEBP (Max 2MB)</span>
+                      </label>
+                      <input
+                          id="create-image-input"
+                          type="file"
+                          accept="image/*"
+                          class="hidden"
+                          @change="handleImageChange"
+                          :disabled="form.processing"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -485,11 +584,9 @@ function formatDate(date) {
 
           <form @submit.prevent="updateParcel" class="space-y-6">
             <div class="grid md:grid-cols-2 gap-6">
-
               <!-- Sender Details -->
               <div class="space-y-4 border rounded-lg p-4">
                 <h3 class="font-semibold text-base">Sender Details</h3>
-
                 <div class="grid grid-cols-2 gap-3">
                   <div class="space-y-1.5">
                     <Label class="text-sm">First Name</Label>
@@ -500,7 +597,6 @@ function formatDate(date) {
                     <Input v-model="editForm.sender_last_name" :disabled="editForm.processing" required />
                   </div>
                 </div>
-
                 <div class="grid grid-cols-2 gap-3">
                   <div class="space-y-1.5">
                     <Label class="text-sm">Phone</Label>
@@ -511,7 +607,6 @@ function formatDate(date) {
                     <Input v-model="editForm.sender_national_id" :disabled="editForm.processing" required />
                   </div>
                 </div>
-
                 <div class="space-y-1.5">
                   <Label class="text-sm">Origin Town</Label>
                   <Input v-model="editForm.origin_town" :disabled="editForm.processing" required />
@@ -521,7 +616,6 @@ function formatDate(date) {
               <!-- Recipient Details -->
               <div class="space-y-4 border rounded-lg p-4">
                 <h3 class="font-semibold text-base">Recipient Details</h3>
-
                 <div class="grid grid-cols-2 gap-3">
                   <div class="space-y-1.5">
                     <Label class="text-sm">First Name</Label>
@@ -532,7 +626,6 @@ function formatDate(date) {
                     <Input v-model="editForm.recipient_last_name" :disabled="editForm.processing" required />
                   </div>
                 </div>
-
                 <div class="grid grid-cols-2 gap-3">
                   <div class="space-y-1.5">
                     <Label class="text-sm">Phone</Label>
@@ -543,15 +636,57 @@ function formatDate(date) {
                     <Input v-model="editForm.recipient_national_id" :disabled="editForm.processing" required />
                   </div>
                 </div>
-
                 <div class="space-y-1.5">
                   <Label class="text-sm">Destination Town</Label>
                   <Input v-model="editForm.destination_town" :disabled="editForm.processing" required />
                 </div>
-
                 <div class="space-y-1.5">
                   <Label class="text-sm">Destination Address</Label>
                   <Textarea v-model="editForm.destination_address" :disabled="editForm.processing" rows="3" required />
+                </div>
+              </div>
+            </div>
+
+            <!-- Parcel Details -->
+            <div class="space-y-4 border rounded-lg p-4">
+              <h3 class="font-semibold text-base">Parcel Details</h3>
+              <div class="space-y-4">
+                <div class="space-y-1.5">
+                  <Label class="text-sm">Description (Optional)</Label>
+                  <Textarea v-model="editForm.description" :disabled="editForm.processing" rows="3" placeholder="Describe the parcel contents..." />
+                </div>
+                <div class="space-y-1.5">
+                  <Label class="text-sm">Parcel Image (Optional)</Label>
+                  <div class="space-y-2">
+                    <div v-if="editImagePreview && !editForm.remove_image" class="relative inline-block">
+                      <img :src="editImagePreview" alt="Preview" class="h-32 w-auto rounded-lg border" />
+                      <Button
+                          type="button"
+                          size="sm"
+                          variant="destructive"
+                          class="absolute -top-2 -right-2"
+                          @click="removeEditImage"
+                          :disabled="editForm.processing"
+                      >
+                        <X class="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <div v-else class="border-2 border-dashed rounded-lg p-4">
+                      <label for="edit-image-input" class="cursor-pointer flex flex-col items-center gap-2">
+                        <Upload class="h-8 w-8 text-gray-400" />
+                        <span class="text-sm text-gray-600">Click to upload image</span>
+                        <span class="text-xs text-gray-400">JPG, PNG, WEBP (Max 2MB)</span>
+                      </label>
+                      <input
+                          id="edit-image-input"
+                          type="file"
+                          accept="image/*"
+                          class="hidden"
+                          @change="handleEditImageChange"
+                          :disabled="editForm.processing"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

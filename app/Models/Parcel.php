@@ -14,9 +14,11 @@ class Parcel extends Model
         'recipient_id',
         'destination_town',
         'destination_address',
+        'description',
+        'image_path',
         'amount',
         'status',
-        'payment_phone' // Add this line
+        'payment_phone'
     ];
 
     protected static function boot()
