@@ -226,7 +226,7 @@ function formatDate(date) {
       </Card>
 
       <!-- View Parcel Dialog - Compact Version -->
-      <Dialog v-model:open="viewDialogOpen" :modal="true">
+      <Dialog v-model:open="viewDialogOpen" :modal="true" @interact-outside="(e) => e.preventDefault()">
         <DialogContent class="sm:max-w-[700px]">
           <DialogHeader class="border-b pb-3">
             <div class="flex items-center justify-between">
