@@ -35,22 +35,40 @@ const viewingParcel = ref(null)
 const imagePreview = ref(null)
 const editImagePreview = ref(null)
 
+// const form = useForm({
+//   sender_first_name: '',
+//   sender_last_name: '',
+//   sender_phone: '',
+//   sender_national_id: '',
+//   origin_town: '',
+//   recipient_first_name: '',
+//   recipient_last_name: '',
+//   recipient_phone: '',
+//   recipient_national_id: '',
+//   destination_town: '',
+//   destination_address: '',
+//   description: '',
+//   image: null,
+//   amount: '',
+//   payment_phone: ''
+// })
+
 const form = useForm({
-  sender_first_name: '',
-  sender_last_name: '',
-  sender_phone: '',
-  sender_national_id: '',
-  origin_town: '',
-  recipient_first_name: '',
-  recipient_last_name: '',
-  recipient_phone: '',
-  recipient_national_id: '',
-  destination_town: '',
-  destination_address: '',
-  description: '',
+  sender_first_name: 'John',
+  sender_last_name: 'Doe',
+  sender_phone: '0712345678',
+  sender_national_id: '12345678',
+  origin_town: 'Nairobi',
+  recipient_first_name: 'Jane',
+  recipient_last_name: 'Smith',
+  recipient_phone: '0798765432',
+  recipient_national_id: '87654321',
+  destination_town: 'Mombasa',
+  destination_address: 'Nyali Beach Road, Apartment 5B',
+  description: 'Electronics - Handle with care',
   image: null,
-  amount: '',
-  payment_phone: ''
+  amount: '500',
+  payment_phone: '0712419949'
 })
 
 const editForm = useForm({
@@ -75,7 +93,13 @@ const editForm = useForm({
 
 function handleImageChange(event) {
   const file = event.target.files[0]
+  console.log('File selected:', file)
   if (file) {
+    console.log('File details:', {
+      name: file.name,
+      size: file.size,
+      type: file.type
+    })
     form.image = file
     const reader = new FileReader()
     reader.onload = (e) => {
@@ -114,12 +138,33 @@ function removeEditImage() {
 }
 
 function submit() {
+  console.log('=== FORM SUBMISSION DEBUG ===')
+  console.log('Form image:', form.image)
+  console.log('Form image type:', typeof form.image)
+  console.log('Is File?:', form.image instanceof File)
+
   form.post('/parcels', {
     forceFormData: true,
-    onSuccess: () => {
+    onBefore: () => {
+      console.log('onBefore: Request about to start')
+    },
+    onStart: () => {
+      console.log('onStart: Request started')
+    },
+    onProgress: (progress) => {
+      console.log('onProgress:', progress)
+    },
+    onSuccess: (response) => {
+      console.log('onSuccess:', response)
       form.reset()
       imagePreview.value = null
       createDialogOpen.value = false
+    },
+    onError: (errors) => {
+      console.error('onError:', errors)
+    },
+    onFinish: () => {
+      console.log('onFinish: Request complete')
     },
     preserveScroll: true
   })

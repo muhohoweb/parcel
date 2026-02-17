@@ -21,7 +21,7 @@ class ParcelController extends Controller
 
     public function index()
     {
-        $parcels = Parcel::with(['sender', 'recipient', 'mpesaTransactions' => function($query) {
+        $parcels = Parcel::with(['sender', 'recipient', 'mpesaTransactions' => function ($query) {
             $query->where('status', 'completed')->latest();
         }])
             ->latest()
@@ -34,6 +34,12 @@ class ParcelController extends Controller
 
     public function store(Request $request)
     {
+        Log::info('=== PARCEL STORE METHOD HIT ===');
+        Log::info('Request method: ' . $request->method());
+        Log::info('Request all data:', $request->all());
+        Log::info('Has image file:', ['has_image' => $request->hasFile('image')]);
+        Log::info('Files:', $request->allFiles());
+
         $validated = $request->validate([
             'sender_first_name' => 'required|string|max:255',
             'sender_last_name' => 'required|string|max:255',
@@ -53,7 +59,13 @@ class ParcelController extends Controller
 
             'amount' => 'required|numeric|min:0',
             'payment_phone' => 'required|string|max:15',
+        ], [
+            'image.max' => 'The image must be less than 2MB.',
+            'image.image' => 'The file must be an image.',
+            'image.mimes' => 'The image must be a JPG, JPEG, PNG, or WEBP file.',
         ]);
+
+        Log::info('Validation passed!');
 
         // Check for duplicate submission in last 5 minutes
         $recentDuplicate = Parcel::where('payment_phone', $validated['payment_phone'])
@@ -63,6 +75,7 @@ class ParcelController extends Controller
             ->exists();
 
         if ($recentDuplicate) {
+            Log::warning('Duplicate parcel detected');
             return back()->withErrors(['duplicate' => 'A similar parcel was just created. Please wait a moment before submitting again.']);
         }
 
@@ -70,6 +83,7 @@ class ParcelController extends Controller
         DB::beginTransaction();
 
         try {
+            Log::info('Creating sender...');
             $sender = User::firstOrCreate(
                 ['phone' => $validated['sender_phone']],
                 [
@@ -79,6 +93,7 @@ class ParcelController extends Controller
                 ]
             );
 
+            Log::info('Creating recipient...');
             $recipient = User::firstOrCreate(
                 ['phone' => $validated['recipient_phone']],
                 [
@@ -91,9 +106,12 @@ class ParcelController extends Controller
             // Handle image upload
             $imagePath = null;
             if ($request->hasFile('image')) {
+                Log::info('Uploading image...');
                 $imagePath = $this->uploadImage($request->file('image'));
+                Log::info('Image uploaded:', ['path' => $imagePath]);
             }
 
+            Log::info('Creating parcel...');
             $parcel = Parcel::create([
                 'sender_id' => $sender->id,
                 'origin_town' => $validated['origin_town'],
@@ -106,16 +124,22 @@ class ParcelController extends Controller
                 'payment_phone' => $validated['payment_phone'],
             ]);
 
+            Log::info('Parcel created:', ['id' => $parcel->id, 'tracking' => $parcel->tracking_number]);
+
             // Initiate M-Pesa STK Push
+            Log::info('Initiating M-Pesa STK push...');
             $stkResult = $this->initiateStkPush($parcel, $validated['payment_phone'], $validated['amount']);
 
             DB::commit();
+
+            Log::info('Transaction committed successfully');
 
             return back()->with('success', $stkResult['message']);
 
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Parcel Creation Error: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
             return back()->withErrors(['error' => 'Failed to create parcel. Please try again.']);
         }
     }
@@ -146,7 +170,7 @@ class ParcelController extends Controller
         try {
             $response = Mpesa::stkpush(
                 phonenumber: $phone,
-                amount: (int) $amount,
+                amount: (int)$amount,
                 account_number: $accountReference,
                 callbackurl: route('mpesa.callback'),
                 transactionType: 'CustomerPayBillOnline'
