@@ -17,19 +17,19 @@ Route::get('dashboard', function () {
     return Inertia::render('Dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
+Route::middleware(['auth'])->group(function () {
 
-
-
-Route::get('/parcels', [ParcelController::class, 'index'])->name('parcels.index');
-Route::post('/parcels', [ParcelController::class, 'store'])->name('parcels.store');
-Route::put('/parcels/{parcel}', [ParcelController::class, 'update'])->name('parcels.update');
-Route::delete('/parcels/{parcel}', [ParcelController::class, 'destroy'])->name('parcels.destroy');
-
+    Route::get('/parcels', [ParcelController::class, 'index'])->name('parcels.index');
+    Route::post('/parcels', [ParcelController::class, 'store'])->name('parcels.store');
+    Route::put('/parcels/{parcel}', [ParcelController::class, 'update'])->name('parcels.update');
+    Route::delete('/parcels/{parcel}', [ParcelController::class, 'destroy'])->name('parcels.destroy');
+    Route::post('/whatsapp/send-dispatch', [WhatsAppController::class, 'sendDispatchNotification']);
+});
 //WhatsApp callbacks
 Route::match(['get', 'post'], '/whatsapp/webhook', [WhatsAppController::class, 'webhook']);
-Route::post('/whatsapp/send-dispatch', [WhatsAppController::class, 'sendDispatchNotification']);
+
 
 
 Route::post('/mpesa/callback', [MpesaController::class, 'callback'])->name('mpesa.callback');
 
-require __DIR__.'/settings.php';
+require __DIR__ . '/settings.php';
