@@ -20,6 +20,7 @@ return new class extends Migration
             $table->text('destination_address');
 
             $table->decimal('amount', 10, 2);
+            $table->string('payment_phone', 15);
             $table->enum('status', ['pending_payment', 'received', 'in_transit', 'delivered'])->default('pending_payment');
 
             $table->timestamps();
