@@ -153,9 +153,11 @@ function editParcel(parcel) {
 }
 
 function updateParcel() {
-  editForm.post(`/parcels/${editingParcel.value.id}`, {
+  editForm.transform((data) => ({
+    ...data,
+    _method: 'PUT'
+  })).post(`/parcels/${editingParcel.value.id}`, {
     forceFormData: true,
-    _method: 'put',
     onSuccess: () => {
       editDialogOpen.value = false
       editForm.reset()
