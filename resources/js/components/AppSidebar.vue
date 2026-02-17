@@ -17,6 +17,7 @@ import {type NavItem} from '@/types';
 import AppLogo from './AppLogo.vue';
 import {dashboard} from '@/routes';
 import parcels from "@/routes/parcels";
+import transactions from "@/routes/transactions";
 
 const mainNavItems: NavItem[] = [
   {
@@ -30,8 +31,8 @@ const mainNavItems: NavItem[] = [
     icon: BoxesIcon,
   },
   {
-    title: 'Payments',
-    href: parcels.index(),
+    title: 'Transactions',
+    href: transactions.index(),
     icon: DollarSignIcon,
   },
   {
