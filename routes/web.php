@@ -3,6 +3,7 @@
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MpesaController;
 use App\Http\Controllers\ParcelController;
+use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\WhatsAppController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -23,6 +24,7 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/parcels/{parcel}', [ParcelController::class, 'update'])->name('parcels.update');
     Route::delete('/parcels/{parcel}', [ParcelController::class, 'destroy'])->name('parcels.destroy');
     Route::post('/whatsapp/send-dispatch', [WhatsAppController::class, 'sendDispatchNotification']);
+    Route::get('/transactions', [TransactionController::class, 'index'])->name('transactions.index');
 });
 //WhatsApp callbacks
 Route::match(['get', 'post'], '/whatsapp/webhook', [WhatsAppController::class, 'webhook']);
