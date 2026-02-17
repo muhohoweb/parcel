@@ -328,153 +328,107 @@ function formatDate(date) {
 
       <!-- View Parcel Dialog -->
       <Dialog v-model:open="viewDialogOpen" :modal="true">
-        <DialogContent class="sm:max-w-[700px]">
-          <DialogHeader class="border-b pb-3">
+        <DialogContent class="sm:max-w-[600px]">
+          <DialogHeader class="border-b pb-4">
             <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <Package class="h-5 w-5 text-orange-600" />
-                <DialogTitle class="text-xl font-bold">Parcel Details</DialogTitle>
-              </div>
-              <span v-if="viewingParcel" :class="['inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold border', getStatusColor(viewingParcel.status)]">
-                {{ viewingParcel.status.replace('_', ' ').toUpperCase() }}
-              </span>
+              <DialogTitle class="text-lg font-semibold">Parcel Details</DialogTitle>
+              <span v-if="viewingParcel" :class="['inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border', getStatusColor(viewingParcel.status)]">
+          {{ viewingParcel.status.replace('_', ' ').toUpperCase() }}
+        </span>
             </div>
           </DialogHeader>
 
-          <div v-if="viewingParcel" class="space-y-4 py-4">
-            <!-- Tracking Number -->
-            <div class="bg-orange-50 rounded-lg p-3 border border-orange-200">
-              <p class="text-xs text-gray-600 mb-0.5">Tracking Number</p>
-              <p class="text-lg font-bold font-mono text-orange-600">{{ viewingParcel.tracking_number }}</p>
+          <div v-if="viewingParcel" class="space-y-5 py-4">
+            <!-- Tracking -->
+            <div>
+              <p class="text-xs text-gray-500 mb-1">Tracking Number</p>
+              <p class="text-base font-mono font-semibold text-orange-600">{{ viewingParcel.tracking_number }}</p>
             </div>
 
-            <!-- Description and Image -->
-            <div v-if="viewingParcel.description || viewingParcel.image_path" class="space-y-3">
-              <div v-if="viewingParcel.description" class="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                <p class="text-xs text-gray-600 mb-1">Description</p>
-                <p class="text-sm">{{ viewingParcel.description }}</p>
+            <!-- Description & Image (if present) -->
+            <div v-if="viewingParcel.description || viewingParcel.image_path" class="space-y-3 pt-3 border-t">
+              <div v-if="viewingParcel.description">
+                <p class="text-xs text-gray-500 mb-1">Description</p>
+                <p class="text-sm text-gray-700">{{ viewingParcel.description }}</p>
               </div>
-              <div v-if="viewingParcel.image_path" class="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                <p class="text-xs text-gray-600 mb-2">Parcel Image</p>
-                <img :src="`/${viewingParcel.image_path}`" alt="Parcel" class="rounded-lg max-h-48 w-auto" />
-              </div>
-            </div>
-
-            <!-- Two Column Layout -->
-            <div class="grid grid-cols-2 gap-4">
-              <!-- Sender -->
-              <div class="space-y-2 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                <div class="flex items-center gap-1.5 mb-2">
-                  <User class="h-4 w-4 text-blue-600" />
-                  <h3 class="font-semibold text-sm text-blue-900">Sender</h3>
-                </div>
-                <div>
-                  <p class="text-xs text-gray-600">Name</p>
-                  <p class="text-sm font-semibold">{{ viewingParcel.sender.full_name }}</p>
-                </div>
-                <div>
-                  <p class="text-xs text-gray-600">Phone</p>
-                  <p class="text-sm font-mono">{{ viewingParcel.sender.phone }}</p>
-                </div>
-                <div>
-                  <p class="text-xs text-gray-600">National ID</p>
-                  <p class="text-sm font-mono">{{ viewingParcel.sender.national_id_no }}</p>
-                </div>
-                <div class="pt-1 border-t border-blue-200">
-                  <p class="text-xs text-gray-600 flex items-center gap-1">
-                    <MapPin class="h-3 w-3" />
-                    Origin
-                  </p>
-                  <p class="text-sm font-semibold text-blue-700">{{ viewingParcel.origin_town }}</p>
-                </div>
-              </div>
-
-              <!-- Recipient -->
-              <div class="space-y-2 p-3 bg-green-50 rounded-lg border border-green-100">
-                <div class="flex items-center gap-1.5 mb-2">
-                  <User class="h-4 w-4 text-green-600" />
-                  <h3 class="font-semibold text-sm text-green-900">Recipient</h3>
-                </div>
-                <div>
-                  <p class="text-xs text-gray-600">Name</p>
-                  <p class="text-sm font-semibold">{{ viewingParcel.recipient.full_name }}</p>
-                </div>
-                <div>
-                  <p class="text-xs text-gray-600">Phone</p>
-                  <p class="text-sm font-mono">{{ viewingParcel.recipient.phone }}</p>
-                </div>
-                <div>
-                  <p class="text-xs text-gray-600">National ID</p>
-                  <p class="text-sm font-mono">{{ viewingParcel.recipient.national_id_no }}</p>
-                </div>
-                <div class="pt-1 border-t border-green-200">
-                  <p class="text-xs text-gray-600 flex items-center gap-1">
-                    <MapPin class="h-3 w-3" />
-                    Destination
-                  </p>
-                  <p class="text-sm font-semibold text-green-700">{{ viewingParcel.destination_town }}</p>
-                </div>
+              <div v-if="viewingParcel.image_path">
+                <img :src="`/${viewingParcel.image_path}`" alt="Parcel" class="rounded-md max-h-40 w-auto border" />
               </div>
             </div>
 
-            <!-- Address & Payment Row -->
-            <div class="grid grid-cols-2 gap-4">
-              <!-- Address -->
-              <div class="p-3 bg-purple-50 rounded-lg border border-purple-100">
-                <div class="flex items-center gap-1.5 mb-2">
-                  <MapPin class="h-4 w-4 text-purple-600" />
-                  <h3 class="font-semibold text-sm text-purple-900">Delivery Address</h3>
-                </div>
-                <p class="text-sm leading-relaxed">{{ viewingParcel.destination_address }}</p>
-              </div>
-
-              <!-- Payment -->
-              <div :class="['p-3 rounded-lg border', isPaid(viewingParcel) ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-100']">
-                <div class="flex items-center gap-1.5 mb-2">
-                  <Banknote :class="['h-4 w-4', isPaid(viewingParcel) ? 'text-green-600' : 'text-orange-600']" />
-                  <h3 :class="['font-semibold text-sm', isPaid(viewingParcel) ? 'text-green-900' : 'text-orange-900']">Payment</h3>
-                </div>
-                <div class="space-y-2">
+            <!-- Sender & Recipient (Grid) -->
+            <div class="grid grid-cols-2 gap-4 pt-3 border-t">
+              <div>
+                <p class="text-xs font-semibold text-gray-700 mb-2">Sender</p>
+                <div class="space-y-1.5 text-sm">
                   <div>
-                    <p class="text-xs text-gray-600">Amount</p>
-                    <p :class="['text-lg font-bold', isPaid(viewingParcel) ? 'text-green-600' : 'text-orange-600']">
-                      KES {{ parseFloat(viewingParcel.amount).toLocaleString() }}
-                    </p>
+                    <p class="text-xs text-gray-500">Name</p>
+                    <p class="font-medium">{{ viewingParcel.sender.full_name }}</p>
                   </div>
                   <div>
-                    <p class="text-xs text-gray-600">M-Pesa Number</p>
-                    <p class="text-sm font-mono">{{ viewingParcel.payment_phone }}</p>
+                    <p class="text-xs text-gray-500">Phone</p>
+                    <p class="font-mono">{{ viewingParcel.sender.phone }}</p>
                   </div>
-                  <div v-if="isPaid(viewingParcel)" class="pt-2 border-t border-green-200">
-                    <div class="flex items-center gap-1 text-green-600 mb-1">
-                      <CheckCircle2 class="h-4 w-4" />
-                      <p class="text-xs font-semibold">PAID</p>
-                    </div>
-                    <p class="text-xs text-gray-600">Receipt Number</p>
-                    <p class="text-sm font-mono font-bold text-green-700">{{ getPaymentTransaction(viewingParcel).mpesa_receipt_number }}</p>
+                  <div>
+                    <p class="text-xs text-gray-500">Origin</p>
+                    <p class="font-medium">{{ viewingParcel.origin_town }}</p>
                   </div>
-                  <div v-else class="pt-2 border-t border-orange-200">
-                    <div class="flex items-center gap-1 text-yellow-600">
-                      <Clock class="h-4 w-4" />
-                      <p class="text-xs font-semibold">PENDING PAYMENT</p>
-                    </div>
+                </div>
+              </div>
+
+              <div>
+                <p class="text-xs font-semibold text-gray-700 mb-2">Recipient</p>
+                <div class="space-y-1.5 text-sm">
+                  <div>
+                    <p class="text-xs text-gray-500">Name</p>
+                    <p class="font-medium">{{ viewingParcel.recipient.full_name }}</p>
                   </div>
+                  <div>
+                    <p class="text-xs text-gray-500">Phone</p>
+                    <p class="font-mono">{{ viewingParcel.recipient.phone }}</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-gray-500">Destination</p>
+                    <p class="font-medium">{{ viewingParcel.destination_town }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Address -->
+            <div class="pt-3 border-t">
+              <p class="text-xs text-gray-500 mb-1">Delivery Address</p>
+              <p class="text-sm text-gray-700">{{ viewingParcel.destination_address }}</p>
+            </div>
+
+            <!-- Payment -->
+            <div class="pt-3 border-t">
+              <div class="flex items-baseline justify-between mb-2">
+                <p class="text-xs font-semibold text-gray-700">Payment</p>
+                <p class="text-lg font-bold text-gray-900">KES {{ parseFloat(viewingParcel.amount).toLocaleString() }}</p>
+              </div>
+              <div class="space-y-1.5 text-sm">
+                <div>
+                  <p class="text-xs text-gray-500">M-Pesa Number</p>
+                  <p class="font-mono">{{ viewingParcel.payment_phone }}</p>
+                </div>
+                <div v-if="isPaid(viewingParcel)" class="flex items-center gap-1.5 text-green-600 pt-1">
+                  <CheckCircle2 class="h-4 w-4" />
+                  <span class="text-xs font-semibold">PAID - {{ getPaymentTransaction(viewingParcel).mpesa_receipt_number }}</span>
+                </div>
+                <div v-else class="flex items-center gap-1.5 text-yellow-600 pt-1">
+                  <Clock class="h-4 w-4" />
+                  <span class="text-xs font-semibold">PENDING PAYMENT</span>
                 </div>
               </div>
             </div>
 
             <!-- Footer -->
-            <div class="flex items-center justify-between pt-3 border-t">
-              <div class="text-xs text-gray-500">
-                Created: {{ formatDate(viewingParcel.created_at) }} • Updated: {{ formatDate(viewingParcel.updated_at) }}
-              </div>
+            <div class="flex items-center justify-between pt-4 border-t">
+              <p class="text-xs text-gray-400">{{ formatDate(viewingParcel.created_at) }}</p>
               <div class="flex gap-2">
-                <Button type="button" variant="outline" size="sm" @click="viewDialogOpen = false">
-                  Close
-                </Button>
-                <Button type="button" size="sm" @click="() => { viewDialogOpen = false; editParcel(viewingParcel); }">
-                  Edit Parcel
-                </Button>
+                <Button type="button" variant="outline" size="sm" @click="viewDialogOpen = false">Close</Button>
+                <Button type="button" size="sm" @click="() => { viewDialogOpen = false; editParcel(viewingParcel); }">Edit</Button>
               </div>
             </div>
           </div>
