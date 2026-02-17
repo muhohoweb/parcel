@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MpesaController;
 use App\Http\Controllers\ParcelController;
 use App\Http\Controllers\WhatsAppController;
@@ -13,11 +14,9 @@ Route::get('/', function () {
     ]);
 })->name('home');
 
-Route::get('dashboard', function () {
-    return Inertia::render('Dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware(['auth'])->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::get('/parcels', [ParcelController::class, 'index'])->name('parcels.index');
     Route::post('/parcels', [ParcelController::class, 'store'])->name('parcels.store');
