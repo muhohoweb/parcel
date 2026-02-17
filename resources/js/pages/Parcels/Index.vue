@@ -35,41 +35,41 @@ const viewingParcel = ref(null)
 const imagePreview = ref(null)
 const editImagePreview = ref(null)
 
-// const form = useForm({
-//   sender_first_name: '',
-//   sender_last_name: '',
-//   sender_phone: '',
-//   sender_national_id: '',
-//   origin_town: '',
-//   recipient_first_name: '',
-//   recipient_last_name: '',
-//   recipient_phone: '',
-//   recipient_national_id: '',
-//   destination_town: '',
-//   destination_address: '',
-//   description: '',
-//   image: null,
-//   amount: '',
-//   payment_phone: ''
-// })
-
 const form = useForm({
-  sender_first_name: 'John',
-  sender_last_name: 'Doe',
-  sender_phone: '0712345678',
-  sender_national_id: '12345678',
-  origin_town: 'Nairobi',
-  recipient_first_name: 'Jane',
-  recipient_last_name: 'Smith',
-  recipient_phone: '0798765432',
-  recipient_national_id: '87654321',
-  destination_town: 'Mombasa',
-  destination_address: 'Nyali Beach Road, Apartment 5B',
-  description: 'Electronics - Handle with care',
+  sender_first_name: '',
+  sender_last_name: '',
+  sender_phone: '',
+  sender_national_id: '',
+  origin_town: '',
+  recipient_first_name: '',
+  recipient_last_name: '',
+  recipient_phone: '',
+  recipient_national_id: '',
+  destination_town: '',
+  destination_address: '',
+  description: '',
   image: null,
-  amount: '500',
-  payment_phone: '0712419949'
+  amount: '',
+  payment_phone: ''
 })
+
+// const form = useForm({
+//   sender_first_name: 'John',
+//   sender_last_name: 'Doe',
+//   sender_phone: '0712345678',
+//   sender_national_id: '12345678',
+//   origin_town: 'Nairobi',
+//   recipient_first_name: 'Jane',
+//   recipient_last_name: 'Smith',
+//   recipient_phone: '0798765432',
+//   recipient_national_id: '87654321',
+//   destination_town: 'Mombasa',
+//   destination_address: 'Nyali Beach Road, Apartment 5B',
+//   description: 'Electronics - Handle with care',
+//   image: null,
+//   amount: '500',
+//   payment_phone: '0712419949'
+// })
 
 const editForm = useForm({
   sender_first_name: '',
