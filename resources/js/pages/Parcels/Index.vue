@@ -115,6 +115,7 @@ function removeEditImage() {
 
 function submit() {
   form.post('/parcels', {
+    forceFormData: true,
     onSuccess: () => {
       form.reset()
       imagePreview.value = null
@@ -152,7 +153,9 @@ function editParcel(parcel) {
 }
 
 function updateParcel() {
-  editForm.put(`/parcels/${editingParcel.value.id}`, {
+  editForm.post(`/parcels/${editingParcel.value.id}`, {
+    forceFormData: true,
+    _method: 'put',
     onSuccess: () => {
       editDialogOpen.value = false
       editForm.reset()
