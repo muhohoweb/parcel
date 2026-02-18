@@ -217,7 +217,7 @@ class ParcelController extends Controller
     private function sendWhatsAppMessage(string $phone, string $message): void
     {
         Http::withHeaders([
-            'Authorization' => config('services.flaresend.key'),
+            'Authorization' => 'Bearer ' . config('services.flaresend.key'),
             'Content-Type' => 'application/json',
         ])->post('https://api.flaresend.com/send-message', [
             'recipients' => [$phone],
