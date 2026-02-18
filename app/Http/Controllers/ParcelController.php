@@ -326,11 +326,15 @@ class ParcelController extends Controller
             if ($validated['status'] === 'delivered') {
                 $recipientPhone = '254' . ltrim($recipient->phone, '0');
 
+                Log::info('Sending WhatsApp to: ' . $recipientPhone);
+
                 $message = "Hello {$recipient->first_name}, your parcel ({$parcel->tracking_number}) "
                     . "from {$parcel->origin_town} has been delivered to {$parcel->destination_address}. "
                     . "Thank you for using JetQuickly!";
 
                 $this->sendWhatsAppMessage($recipientPhone, $message);
+
+                Log::info('WhatsApp message sent');
             }
 
             DB::commit();
