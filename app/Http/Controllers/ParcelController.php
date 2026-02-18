@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\MpesaTransaction;
 use Iankumu\Mpesa\Facades\Mpesa;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -213,6 +214,18 @@ class ParcelController extends Controller
         }
     }
 
+    private function sendWhatsAppMessage(string $phone, string $message): void
+    {
+        Http::withHeaders([
+            'Authorization' => config('services.flaresend.key'),
+            'Content-Type' => 'application/json',
+        ])->post('https://api.flaresend.com/send-message', [
+            'recipients' => [$phone],
+            'type' => 'text',
+            'text' => $message,
+        ]);
+    }
+
     public function update(Request $request, Parcel $parcel)
     {
         $validated = $request->validate([
@@ -241,7 +254,6 @@ class ParcelController extends Controller
         DB::beginTransaction();
 
         try {
-            // Update or create sender
             $sender = User::firstOrCreate(
                 ['phone' => $validated['sender_phone']],
                 [
@@ -259,7 +271,6 @@ class ParcelController extends Controller
                 ]);
             }
 
-            // Update or create recipient
             $recipient = User::firstOrCreate(
                 ['phone' => $validated['recipient_phone']],
                 [
@@ -277,10 +288,8 @@ class ParcelController extends Controller
                 ]);
             }
 
-            // Handle image
             $imagePath = $parcel->image_path;
 
-            // Remove old image if requested
             if (!empty($validated['remove_image']) && $parcel->image_path) {
                 $uploadPath = $this->getUploadPath();
                 $oldImagePath = $uploadPath . '/' . basename($parcel->image_path);
@@ -290,9 +299,7 @@ class ParcelController extends Controller
                 $imagePath = null;
             }
 
-            // Upload new image
             if ($request->hasFile('image')) {
-                // Delete old image if exists
                 if ($parcel->image_path) {
                     $uploadPath = $this->getUploadPath();
                     $oldImagePath = $uploadPath . '/' . basename($parcel->image_path);
@@ -303,7 +310,6 @@ class ParcelController extends Controller
                 $imagePath = $this->uploadImage($request->file('image'));
             }
 
-            // Update parcel
             $parcel->update([
                 'sender_id' => $sender->id,
                 'origin_town' => $validated['origin_town'],
@@ -316,6 +322,16 @@ class ParcelController extends Controller
                 'payment_phone' => $validated['payment_phone'],
                 'status' => $validated['status'],
             ]);
+
+            if ($validated['status'] === 'delivered') {
+                $recipientPhone = '254' . ltrim($recipient->phone, '0');
+
+                $message = "Hello {$recipient->first_name}, your parcel ({$parcel->tracking_number}) "
+                    . "from {$parcel->origin_town} has been delivered to {$parcel->destination_address}. "
+                    . "Thank you for using JetQuickly!";
+
+                $this->sendWhatsAppMessage($recipientPhone, $message);
+            }
 
             DB::commit();
 

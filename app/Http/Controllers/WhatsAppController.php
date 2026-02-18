@@ -39,30 +39,49 @@ class WhatsAppController extends Controller
         return response('OK', 200);
     }
 
-    public function sendDispatchNotification(Request $request)
+    public function sendWhatsAppMessage(Request $request): bool
     {
-        $response = Http::withToken(env('WHATSAPP_ACCESS_TOKEN'))
-            ->post('https://graph.facebook.com/v21.0/' . env('WHATSAPP_PHONE_NUMBER_ID') . '/messages', [
-                'messaging_product' => 'whatsapp',
-                'to' => $request->to,
-                'type' => 'template',
-                'template' => [
-                    'name' => 'dispatch',
-                    'language' => ['code' => 'en'],
-                    'components' => [
-                        [
-                            'type' => 'body',
-                            'parameters' => [
-                                ['type' => 'text', 'text' => $request->name],
-                                ['type' => 'text', 'text' => $request->order_id],
-                                ['type' => 'text', 'text' => $request->destination],
-                                ['type' => 'text', 'text' => $request->delivery_date],
-                            ]
-                        ]
-                    ]
-                ]
-            ]);
+        $request->validate([
+            'phone' => 'required|string',
+            'message' => 'required|string',
+        ]);
 
-        return $response->json();
+        $response = Http::withHeaders([
+            'Authorization' => config('services.flaresend.key'),
+            'Content-Type' => 'application/json',
+        ])->post('https://api.flaresend.com/send-message', [
+            'recipients' => [$request->phone],
+            'type' => 'text',
+            'text' => $request->message,
+        ]);
+
+        return $response->successful();
     }
+
+//    public function sendDispatchNotification(Request $request)
+//    {
+//        $response = Http::withToken(env('WHATSAPP_ACCESS_TOKEN'))
+//            ->post('https://graph.facebook.com/v21.0/' . env('WHATSAPP_PHONE_NUMBER_ID') . '/messages', [
+//                'messaging_product' => 'whatsapp',
+//                'to' => $request->to,
+//                'type' => 'template',
+//                'template' => [
+//                    'name' => 'dispatch',
+//                    'language' => ['code' => 'en'],
+//                    'components' => [
+//                        [
+//                            'type' => 'body',
+//                            'parameters' => [
+//                                ['type' => 'text', 'text' => $request->name],
+//                                ['type' => 'text', 'text' => $request->order_id],
+//                                ['type' => 'text', 'text' => $request->destination],
+//                                ['type' => 'text', 'text' => $request->delivery_date],
+//                            ]
+//                        ]
+//                    ]
+//                ]
+//            ]);
+//
+//        return $response->json();
+//    }
 }
