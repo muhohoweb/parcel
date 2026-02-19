@@ -747,42 +747,44 @@ function statusLabel(value) {
     </div>
 
     <!-- ── Fixed bottom bulk action bar ─────────────────────── -->
-    <Transition
-        enter-active-class="transition-all duration-200 ease-out"
-        enter-from-class="opacity-0 translate-y-4"
-        enter-to-class="opacity-100 translate-y-0"
-        leave-active-class="transition-all duration-150 ease-in"
-        leave-from-class="opacity-100 translate-y-0"
-        leave-to-class="opacity-0 translate-y-4"
-    >
-      <div
-          v-if="selectedIds.length >= 2"
-          class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-5 py-3 shadow-xl"
+    <Teleport to="body">
+      <Transition
+          enter-active-class="transition-all duration-200 ease-out"
+          enter-from-class="opacity-0 translate-y-4"
+          enter-to-class="opacity-100 translate-y-0"
+          leave-active-class="transition-all duration-150 ease-in"
+          leave-from-class="opacity-100 translate-y-0"
+          leave-to-class="opacity-0 translate-y-4"
       >
+        <div
+            v-if="selectedIds.length >= 2"
+            class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-5 py-3 shadow-xl"
+        >
         <span class="text-sm font-semibold text-gray-800">
           {{ selectedIds.length }} selected
         </span>
-        <div class="h-4 w-px bg-gray-300" />
-        <span class="text-xs text-gray-500">Set status:</span>
-        <Select v-model="bulkStatus">
-          <SelectTrigger class="h-8 w-44 text-sm">
-            <SelectValue placeholder="Choose status…" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem v-for="opt in STATUS_OPTIONS" :key="opt.value" :value="opt.value">
-              {{ opt.label }}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        <Button size="sm" :disabled="!bulkStatus" @click="openBulkConfirm">
-          Apply
-        </Button>
-        <div class="h-4 w-px bg-gray-300" />
-        <Button size="sm" variant="ghost" class="text-gray-400 hover:text-gray-600 px-2" @click="selectedIds = []">
-          <X class="h-4 w-4" />
-        </Button>
-      </div>
-    </Transition>
+          <div class="h-4 w-px bg-gray-300" />
+          <span class="text-xs text-gray-500">Set status:</span>
+          <Select v-model="bulkStatus">
+            <SelectTrigger class="h-8 w-44 text-sm">
+              <SelectValue placeholder="Choose status…" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="opt in STATUS_OPTIONS" :key="opt.value" :value="opt.value">
+                {{ opt.label }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <Button size="sm" :disabled="!bulkStatus" @click="openBulkConfirm">
+            Apply
+          </Button>
+          <div class="h-4 w-px bg-gray-300" />
+          <Button size="sm" variant="ghost" class="text-gray-400 hover:text-gray-600 px-2" @click="selectedIds = []">
+            <X class="h-4 w-4" />
+          </Button>
+        </div>
+      </Transition>
+    </Teleport>
 
   </AppLayout>
 </template>
