@@ -23,6 +23,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/parcels', [ParcelController::class, 'store'])->name('parcels.store');
     Route::put('/parcels/{parcel}', [ParcelController::class, 'update'])->name('parcels.update');
     Route::delete('/parcels/{parcel}', [ParcelController::class, 'destroy'])->name('parcels.destroy');
+    Route::patch('/parcels/bulk-status', [ParcelController::class, 'bulkUpdateStatus'])->name('parcels.bulk-status');
+    Route::patch('/parcels/{parcel}/status', [ParcelController::class, 'updateStatus'])->name('parcels.update-status');
     Route::post('/whatsapp/send-dispatch', [WhatsAppController::class, 'sendWhatsAppMessage']);
     Route::post('/whatsapp/send-dispatch', [WhatsAppController::class, 'sendDispatchNotification']);
     Route::get('/transactions', [TransactionController::class, 'index'])->name('transactions.index');

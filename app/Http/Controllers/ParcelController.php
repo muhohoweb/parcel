@@ -80,7 +80,6 @@ class ParcelController extends Controller
             return back()->withErrors(['duplicate' => 'A similar parcel was just created. Please wait a moment before submitting again.']);
         }
 
-        // Use database transaction
         DB::beginTransaction();
 
         try {
@@ -104,7 +103,6 @@ class ParcelController extends Controller
                 ]
             );
 
-            // Handle image upload
             $imagePath = null;
             if ($request->hasFile('image')) {
                 Log::info('Uploading image...');
@@ -127,7 +125,6 @@ class ParcelController extends Controller
 
             Log::info('Parcel created:', ['id' => $parcel->id, 'tracking' => $parcel->tracking_number]);
 
-            // Initiate M-Pesa STK Push
             Log::info('Initiating M-Pesa STK push...');
             $stkResult = $this->initiateStkPush($parcel, $validated['payment_phone'], $validated['amount']);
 
@@ -149,7 +146,6 @@ class ParcelController extends Controller
     {
         $uploadPath = $this->getUploadPath();
 
-        // Ensure directory exists
         if (!file_exists($uploadPath)) {
             mkdir($uploadPath, 0755, true);
         }
@@ -162,7 +158,6 @@ class ParcelController extends Controller
 
     private function initiateStkPush(Parcel $parcel, string $phoneNumber, float $amount): array
     {
-        // Format phone: 07xxxxxxxx -> 2547xxxxxxxx
         $phone = preg_replace('/^0/', '254', $phoneNumber);
         $phone = preg_replace('/^\+/', '', $phone);
 
@@ -182,7 +177,6 @@ class ParcelController extends Controller
             Log::info('M-Pesa STK Push Response', $result);
 
             if (isset($result['ResponseCode']) && $result['ResponseCode'] === '0') {
-                // Store transaction
                 MpesaTransaction::create([
                     'parcel_id' => $parcel->id,
                     'merchant_request_id' => $result['MerchantRequestID'],
@@ -324,17 +318,7 @@ class ParcelController extends Controller
             ]);
 
             if ($validated['status'] === 'delivered') {
-                $recipientPhone = '254' . ltrim($recipient->phone, '0');
-
-                Log::info('Sending WhatsApp to: ' . $recipientPhone);
-
-                $message = "Hello {$recipient->first_name}, your parcel ({$parcel->tracking_number}) "
-                    . "from {$parcel->origin_town} has been delivered to {$parcel->destination_address}. "
-                    . "Thank you for using JetQuickly!";
-
-                $this->sendWhatsAppMessage($recipientPhone, $message);
-
-                Log::info('WhatsApp message sent');
+                $this->notifyDelivery($parcel, $recipient);
             }
 
             DB::commit();
@@ -348,9 +332,83 @@ class ParcelController extends Controller
         }
     }
 
+    /**
+     * PATCH /parcels/{parcel}/status
+     * Inline single-row status update from the table dropdown.
+     */
+    public function updateStatus(Request $request, Parcel $parcel)
+    {
+        $validated = $request->validate([
+            'status' => 'required|in:pending_payment,received,in_transit,delivered',
+        ]);
+
+        $parcel->update(['status' => $validated['status']]);
+
+        if ($validated['status'] === 'delivered') {
+            $recipient = $parcel->recipient;
+            $this->notifyDelivery($parcel, $recipient);
+        }
+
+        return back()->with('success', 'Status updated successfully');
+    }
+
+    /**
+     * PATCH /parcels/bulk-status
+     * Bulk status update for multiple paid parcels.
+     */
+    public function bulkUpdateStatus(Request $request)
+    {
+        $validated = $request->validate([
+            'ids'    => 'required|array|min:1',
+            'ids.*'  => 'integer|exists:parcels,id',
+            'status' => 'required|in:pending_payment,received,in_transit,delivered',
+        ]);
+
+        // Only update parcels that have a completed M-Pesa transaction (paid)
+        $parcels = Parcel::whereIn('id', $validated['ids'])
+            ->whereHas('mpesaTransactions', fn($q) => $q->where('status', 'completed'))
+            ->with('recipient')
+            ->get();
+
+        DB::beginTransaction();
+
+        try {
+            foreach ($parcels as $parcel) {
+                $parcel->update(['status' => $validated['status']]);
+
+                if ($validated['status'] === 'delivered') {
+                    $this->notifyDelivery($parcel, $parcel->recipient);
+                }
+            }
+
+            DB::commit();
+
+            return back()->with('success', $parcels->count() . ' parcel(s) updated to ' . $validated['status']);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Bulk Status Update Error: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Failed to update parcels. Please try again.']);
+        }
+    }
+
+    private function notifyDelivery(Parcel $parcel, User $recipient): void
+    {
+        $recipientPhone = '254' . ltrim($recipient->phone, '0');
+
+        Log::info('Sending WhatsApp to: ' . $recipientPhone);
+
+        $message = "Hello {$recipient->first_name}, your parcel ({$parcel->tracking_number}) "
+            . "from {$parcel->origin_town} has been delivered to {$parcel->destination_address}. "
+            . "Thank you for using JetQuickly!";
+
+        $this->sendWhatsAppMessage($recipientPhone, $message);
+
+        Log::info('WhatsApp message sent');
+    }
+
     public function destroy(Parcel $parcel)
     {
-        // Delete image if exists
         if ($parcel->image_path) {
             $uploadPath = $this->getUploadPath();
             $imagePath = $uploadPath . '/' . basename($parcel->image_path);

@@ -8,25 +8,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Loader2, Eye, User, MapPin, Banknote, Package, CheckCircle2, Clock, X, Upload, ImageIcon } from 'lucide-vue-next'
-import { ref } from 'vue'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Loader2, Eye, CheckCircle2, Clock, X, Upload } from 'lucide-vue-next'
+import { ref, computed } from 'vue'
 
 const props = defineProps({
   parcels: Array
 })
 
 const breadcrumbs = [
-  {
-    title: 'Dashboard',
-    href: dashboard().url,
-  },
-  {
-    title: 'Parcels',
-  }
+  { title: 'Dashboard', href: dashboard().url },
+  { title: 'Parcels' }
 ]
 
+// ── Dialog state ──────────────────────────────────────────────
 const createDialogOpen = ref(false)
 const editDialogOpen = ref(false)
 const viewDialogOpen = ref(false)
@@ -35,6 +32,87 @@ const viewingParcel = ref(null)
 const imagePreview = ref(null)
 const editImagePreview = ref(null)
 
+// ── Inline status update confirmation ─────────────────────────
+const statusConfirmOpen = ref(false)
+const pendingStatusChange = ref(null) // { parcel, newStatus }
+const statusUpdating = ref(false)
+
+// ── Bulk status update ─────────────────────────────────────────
+const selectedIds = ref([])
+const bulkStatus = ref('')
+const bulkConfirmOpen = ref(false)
+const bulkUpdating = ref(false)
+
+// Only paid parcels are selectable for bulk update
+const paidParcels = computed(() => props.parcels.filter(p => isPaid(p)))
+
+const allPaidSelected = computed(() =>
+    paidParcels.value.length > 0 && paidParcels.value.every(p => selectedIds.value.includes(p.id))
+)
+
+const selectedParcels = computed(() =>
+    props.parcels.filter(p => selectedIds.value.includes(p.id))
+)
+
+function toggleSelectAll() {
+  if (allPaidSelected.value) {
+    selectedIds.value = []
+  } else {
+    selectedIds.value = paidParcels.value.map(p => p.id)
+  }
+}
+
+function toggleSelect(id) {
+  if (selectedIds.value.includes(id)) {
+    selectedIds.value = selectedIds.value.filter(i => i !== id)
+  } else {
+    selectedIds.value = [...selectedIds.value, id]
+  }
+}
+
+// ── Inline status change flow ──────────────────────────────────
+function requestStatusChange(parcel, newStatus) {
+  if (parcel.status === newStatus) return
+  pendingStatusChange.value = { parcel, newStatus }
+  statusConfirmOpen.value = true
+}
+
+function confirmStatusChange() {
+  const { parcel, newStatus } = pendingStatusChange.value
+  statusUpdating.value = true
+  router.patch(`/parcels/${parcel.id}/status`, { status: newStatus }, {
+    preserveScroll: true,
+    onFinish: () => {
+      statusUpdating.value = false
+      statusConfirmOpen.value = false
+      pendingStatusChange.value = null
+    }
+  })
+}
+
+// ── Bulk status update flow ────────────────────────────────────
+function openBulkConfirm() {
+  if (!bulkStatus.value || selectedIds.value.length === 0) return
+  bulkConfirmOpen.value = true
+}
+
+function confirmBulkUpdate() {
+  bulkUpdating.value = true
+  router.patch('/parcels/bulk-status', {
+    ids: selectedIds.value,
+    status: bulkStatus.value
+  }, {
+    preserveScroll: true,
+    onFinish: () => {
+      bulkUpdating.value = false
+      bulkConfirmOpen.value = false
+      selectedIds.value = []
+      bulkStatus.value = ''
+    }
+  })
+}
+
+// ── Forms ──────────────────────────────────────────────────────
 const form = useForm({
   sender_first_name: '',
   sender_last_name: '',
@@ -52,24 +130,6 @@ const form = useForm({
   amount: '',
   payment_phone: ''
 })
-
-// const form = useForm({
-//   sender_first_name: 'John',
-//   sender_last_name: 'Doe',
-//   sender_phone: '0712345678',
-//   sender_national_id: '12345678',
-//   origin_town: 'Nairobi',
-//   recipient_first_name: 'Jane',
-//   recipient_last_name: 'Smith',
-//   recipient_phone: '0798765432',
-//   recipient_national_id: '87654321',
-//   destination_town: 'Mombasa',
-//   destination_address: 'Nyali Beach Road, Apartment 5B',
-//   description: 'Electronics - Handle with care',
-//   image: null,
-//   amount: '500',
-//   payment_phone: '0712419949'
-// })
 
 const editForm = useForm({
   sender_first_name: '',
@@ -91,20 +151,13 @@ const editForm = useForm({
   status: ''
 })
 
+// ── Image handlers ─────────────────────────────────────────────
 function handleImageChange(event) {
   const file = event.target.files[0]
-  console.log('File selected:', file)
   if (file) {
-    console.log('File details:', {
-      name: file.name,
-      size: file.size,
-      type: file.type
-    })
     form.image = file
     const reader = new FileReader()
-    reader.onload = (e) => {
-      imagePreview.value = e.target.result
-    }
+    reader.onload = (e) => { imagePreview.value = e.target.result }
     reader.readAsDataURL(file)
   }
 }
@@ -112,8 +165,8 @@ function handleImageChange(event) {
 function removeImage() {
   form.image = null
   imagePreview.value = null
-  const fileInput = document.getElementById('create-image-input')
-  if (fileInput) fileInput.value = ''
+  const input = document.getElementById('create-image-input')
+  if (input) input.value = ''
 }
 
 function handleEditImageChange(event) {
@@ -122,9 +175,7 @@ function handleEditImageChange(event) {
     editForm.image = file
     editForm.remove_image = false
     const reader = new FileReader()
-    reader.onload = (e) => {
-      editImagePreview.value = e.target.result
-    }
+    reader.onload = (e) => { editImagePreview.value = e.target.result }
     reader.readAsDataURL(file)
   }
 }
@@ -133,38 +184,18 @@ function removeEditImage() {
   editForm.image = null
   editForm.remove_image = true
   editImagePreview.value = null
-  const fileInput = document.getElementById('edit-image-input')
-  if (fileInput) fileInput.value = ''
+  const input = document.getElementById('edit-image-input')
+  if (input) input.value = ''
 }
 
+// ── Submit / CRUD ──────────────────────────────────────────────
 function submit() {
-  console.log('=== FORM SUBMISSION DEBUG ===')
-  console.log('Form image:', form.image)
-  console.log('Form image type:', typeof form.image)
-  console.log('Is File?:', form.image instanceof File)
-
   form.post('/parcels', {
     forceFormData: true,
-    onBefore: () => {
-      console.log('onBefore: Request about to start')
-    },
-    onStart: () => {
-      console.log('onStart: Request started')
-    },
-    onProgress: (progress) => {
-      console.log('onProgress:', progress)
-    },
-    onSuccess: (response) => {
-      console.log('onSuccess:', response)
+    onSuccess: () => {
       form.reset()
       imagePreview.value = null
       createDialogOpen.value = false
-    },
-    onError: (errors) => {
-      console.error('onError:', errors)
-    },
-    onFinish: () => {
-      console.log('onFinish: Request complete')
     },
     preserveScroll: true
   })
@@ -198,19 +229,17 @@ function editParcel(parcel) {
 }
 
 function updateParcel() {
-  editForm.transform((data) => ({
-    ...data,
-    _method: 'PUT'
-  })).post(`/parcels/${editingParcel.value.id}`, {
-    forceFormData: true,
-    onSuccess: () => {
-      editDialogOpen.value = false
-      editForm.reset()
-      editImagePreview.value = null
-      editingParcel.value = null
-    },
-    preserveScroll: true
-  })
+  editForm.transform((data) => ({ ...data, _method: 'PUT' }))
+      .post(`/parcels/${editingParcel.value.id}`, {
+        forceFormData: true,
+        onSuccess: () => {
+          editDialogOpen.value = false
+          editForm.reset()
+          editImagePreview.value = null
+          editingParcel.value = null
+        },
+        preserveScroll: true
+      })
 }
 
 function deleteParcel(parcelId) {
@@ -219,21 +248,26 @@ function deleteParcel(parcelId) {
   }
 }
 
+// ── Helpers ────────────────────────────────────────────────────
+const STATUS_OPTIONS = [
+  { value: 'pending_payment', label: 'Pending Payment' },
+  { value: 'received',        label: 'Received' },
+  { value: 'in_transit',      label: 'In Transit' },
+  { value: 'delivered',       label: 'Delivered' },
+]
+
 function getStatusColor(status) {
   const colors = {
-    'pending_payment': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-    'received': 'bg-green-100 text-green-800 border-green-200',
-    'in_transit': 'bg-purple-100 text-purple-800 border-purple-200',
-    'delivered': 'bg-green-100 text-green-800 border-green-200'
+    pending_payment: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+    received:        'bg-blue-100 text-blue-800 border-blue-200',
+    in_transit:      'bg-purple-100 text-purple-800 border-purple-200',
+    delivered:       'bg-green-100 text-green-800 border-green-200',
   }
   return colors[status] || 'bg-gray-100 text-gray-800 border-gray-200'
 }
 
 function getRowClass(parcel) {
-  if (parcel.mpesa_transactions && parcel.mpesa_transactions.length > 0) {
-    return 'bg-green-50 hover:bg-green-100'
-  }
-  return ''
+  return isPaid(parcel) ? 'bg-green-50 hover:bg-green-100' : ''
 }
 
 function isPaid(parcel) {
@@ -241,19 +275,18 @@ function isPaid(parcel) {
 }
 
 function getPaymentTransaction(parcel) {
-  return parcel.mpesa_transactions && parcel.mpesa_transactions.length > 0
-      ? parcel.mpesa_transactions[0]
-      : null
+  return isPaid(parcel) ? parcel.mpesa_transactions[0] : null
 }
 
 function formatDate(date) {
   return new Date(date).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
+    month: 'short', day: 'numeric', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
   })
+}
+
+function statusLabel(value) {
+  return STATUS_OPTIONS.find(o => o.value === value)?.label ?? value
 }
 </script>
 
@@ -263,18 +296,51 @@ function formatDate(date) {
   <AppLayout :breadcrumbs="breadcrumbs">
     <div class="flex h-full flex-1 flex-col gap-4 p-6">
 
-      <!-- Parcels List -->
+      <!-- ── Parcels List ───────────────────────────────────────── -->
       <Card class="shadow-md">
         <CardHeader class="flex flex-row items-center justify-between">
           <CardTitle>All Parcels</CardTitle>
-          <Button @click="createDialogOpen = true" :disabled="form.processing">
-            Add Parcel
-          </Button>
+          <div class="flex items-center gap-3">
+
+            <!-- Bulk toolbar (visible when rows selected) -->
+            <template v-if="selectedIds.length > 0">
+              <span class="text-sm text-gray-500">{{ selectedIds.length }} selected</span>
+              <Select v-model="bulkStatus">
+                <SelectTrigger class="w-40 h-8 text-sm">
+                  <SelectValue placeholder="Set status…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="opt in STATUS_OPTIONS" :key="opt.value" :value="opt.value">
+                    {{ opt.label }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <Button size="sm" :disabled="!bulkStatus" @click="openBulkConfirm">
+                Apply
+              </Button>
+              <Button size="sm" variant="ghost" @click="selectedIds = []">
+                Clear
+              </Button>
+            </template>
+
+            <Button @click="createDialogOpen = true" :disabled="form.processing">
+              Add Parcel
+            </Button>
+          </div>
         </CardHeader>
+
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
+                <!-- Select-all checkbox (only for paid parcels) -->
+                <TableHead class="w-10">
+                  <Checkbox
+                      :checked="allPaidSelected"
+                      @update:checked="toggleSelectAll"
+                      :disabled="paidParcels.length === 0"
+                  />
+                </TableHead>
                 <TableHead>Tracking No.</TableHead>
                 <TableHead>Sender</TableHead>
                 <TableHead>Recipient</TableHead>
@@ -287,11 +353,22 @@ function formatDate(date) {
             </TableHeader>
             <TableBody>
               <TableRow v-for="parcel in parcels" :key="parcel.id" :class="getRowClass(parcel)">
+
+                <!-- Row checkbox (only paid parcels) -->
+                <TableCell>
+                  <Checkbox
+                      v-if="isPaid(parcel)"
+                      :checked="selectedIds.includes(parcel.id)"
+                      @update:checked="toggleSelect(parcel.id)"
+                  />
+                </TableCell>
+
                 <TableCell class="font-mono text-sm">{{ parcel.tracking_number }}</TableCell>
                 <TableCell class="text-sm">{{ parcel.sender.full_name }}</TableCell>
                 <TableCell class="text-sm">{{ parcel.recipient.full_name }}</TableCell>
                 <TableCell class="text-sm">{{ parcel.origin_town }} → {{ parcel.destination_town }}</TableCell>
                 <TableCell class="text-sm">KES {{ parcel.amount }}</TableCell>
+
                 <TableCell class="text-sm">
                   <div v-if="isPaid(parcel)" class="flex items-center gap-1 text-green-600">
                     <CheckCircle2 class="h-4 w-4" />
@@ -302,11 +379,26 @@ function formatDate(date) {
                     <span>Pending</span>
                   </div>
                 </TableCell>
+
+                <!-- Inline status select (Excel-style) -->
                 <TableCell class="text-sm">
-                  <span :class="['inline-flex items-center rounded-full px-2 py-1 text-xs font-medium', getStatusColor(parcel.status)]">
-                    {{ parcel.status.replace('_', ' ') }}
-                  </span>
+                  <Select
+                      :model-value="parcel.status"
+                      @update:model-value="(val) => requestStatusChange(parcel, val)"
+                  >
+                    <SelectTrigger
+                        :class="['h-7 text-xs border font-medium rounded-full px-2', getStatusColor(parcel.status)]"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem v-for="opt in STATUS_OPTIONS" :key="opt.value" :value="opt.value">
+                        {{ opt.label }}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                 </TableCell>
+
                 <TableCell>
                   <div class="flex gap-2">
                     <Button @click="viewParcel(parcel)" size="sm" variant="ghost">
@@ -326,26 +418,114 @@ function formatDate(date) {
         </CardContent>
       </Card>
 
-      <!-- View Parcel Dialog -->
+      <!-- ── Inline Status Confirm Dialog ──────────────────────── -->
+      <Dialog v-model:open="statusConfirmOpen" :modal="true">
+        <DialogContent class="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Update Status</DialogTitle>
+            <DialogDescription v-if="pendingStatusChange" class="pt-2 space-y-1">
+              <p class="text-sm">
+                Change
+                <span class="font-mono font-semibold text-orange-600">
+                  {{ pendingStatusChange.parcel.tracking_number }}
+                </span>
+                from
+                <span :class="['inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border', getStatusColor(pendingStatusChange.parcel.status)]">
+                  {{ statusLabel(pendingStatusChange.parcel.status) }}
+                </span>
+                to
+                <span :class="['inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border', getStatusColor(pendingStatusChange.newStatus)]">
+                  {{ statusLabel(pendingStatusChange.newStatus) }}
+                </span>
+                ?
+              </p>
+              <p class="text-xs text-gray-500 pt-1">
+                {{ pendingStatusChange.parcel.origin_town }} → {{ pendingStatusChange.parcel.destination_town }}
+                &bull; {{ pendingStatusChange.parcel.recipient.full_name }}
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter class="gap-2 pt-2">
+            <Button variant="outline" @click="statusConfirmOpen = false" :disabled="statusUpdating">
+              Cancel
+            </Button>
+            <Button @click="confirmStatusChange" :disabled="statusUpdating">
+              <Loader2 v-if="statusUpdating" class="mr-2 h-4 w-4 animate-spin" />
+              {{ statusUpdating ? 'Updating…' : 'Confirm' }}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <!-- ── Bulk Status Confirm Dialog ─────────────────────────── -->
+      <Dialog v-model:open="bulkConfirmOpen" :modal="true">
+        <DialogContent class="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>Bulk Status Update</DialogTitle>
+            <DialogDescription class="pt-1">
+              You are about to set
+              <span class="font-semibold text-gray-900">{{ selectedParcels.length }} parcel(s)</span>
+              to
+              <span :class="['inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border', getStatusColor(bulkStatus)]">
+                {{ statusLabel(bulkStatus) }}
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <!-- Summary table -->
+          <div class="max-h-60 overflow-y-auto border rounded-lg mt-2">
+            <table class="w-full text-xs">
+              <thead class="bg-gray-50 sticky top-0">
+              <tr>
+                <th class="text-left px-3 py-2 font-medium text-gray-600">Tracking</th>
+                <th class="text-left px-3 py-2 font-medium text-gray-600">Route</th>
+                <th class="text-left px-3 py-2 font-medium text-gray-600">Current</th>
+              </tr>
+              </thead>
+              <tbody>
+              <tr v-for="p in selectedParcels" :key="p.id" class="border-t">
+                <td class="px-3 py-1.5 font-mono text-orange-600">{{ p.tracking_number }}</td>
+                <td class="px-3 py-1.5 text-gray-700">{{ p.origin_town }} → {{ p.destination_town }}</td>
+                <td class="px-3 py-1.5">
+                    <span :class="['inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border', getStatusColor(p.status)]">
+                      {{ statusLabel(p.status) }}
+                    </span>
+                </td>
+              </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <DialogFooter class="gap-2 pt-2">
+            <Button variant="outline" @click="bulkConfirmOpen = false" :disabled="bulkUpdating">
+              Cancel
+            </Button>
+            <Button @click="confirmBulkUpdate" :disabled="bulkUpdating">
+              <Loader2 v-if="bulkUpdating" class="mr-2 h-4 w-4 animate-spin" />
+              {{ bulkUpdating ? 'Updating…' : `Update ${selectedParcels.length} Parcel(s)` }}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <!-- ── View Parcel Dialog ─────────────────────────────────── -->
       <Dialog v-model:open="viewDialogOpen" :modal="true">
         <DialogContent class="sm:max-w-[600px]">
           <DialogHeader class="border-b pb-4">
             <div class="flex items-center justify-between">
               <DialogTitle class="text-lg font-semibold">Parcel Details</DialogTitle>
               <span v-if="viewingParcel" :class="['inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border', getStatusColor(viewingParcel.status)]">
-          {{ viewingParcel.status.replace('_', ' ').toUpperCase() }}
-        </span>
+                {{ viewingParcel.status.replace('_', ' ').toUpperCase() }}
+              </span>
             </div>
           </DialogHeader>
 
           <div v-if="viewingParcel" class="space-y-5 py-4">
-            <!-- Tracking -->
             <div>
               <p class="text-xs text-gray-500 mb-1">Tracking Number</p>
               <p class="text-base font-mono font-semibold text-orange-600">{{ viewingParcel.tracking_number }}</p>
             </div>
 
-            <!-- Description & Image (if present) -->
             <div v-if="viewingParcel.description || viewingParcel.image_path" class="flex gap-4 pt-3 border-t">
               <div v-if="viewingParcel.image_path" class="shrink-0">
                 <img :src="`/${viewingParcel.image_path}`" alt="Parcel" class="rounded-md h-28 w-auto border object-cover" />
@@ -356,62 +536,37 @@ function formatDate(date) {
               </div>
             </div>
 
-            <!-- Sender & Recipient (Grid) -->
             <div class="grid grid-cols-2 gap-4 pt-3 border-t">
               <div>
                 <p class="text-xs font-semibold text-gray-700 mb-2">Sender</p>
                 <div class="space-y-1.5 text-sm">
-                  <div>
-                    <p class="text-xs text-gray-500">Name</p>
-                    <p class="font-medium">{{ viewingParcel.sender.full_name }}</p>
-                  </div>
-                  <div>
-                    <p class="text-xs text-gray-500">Phone</p>
-                    <p class="font-mono">{{ viewingParcel.sender.phone }}</p>
-                  </div>
-                  <div>
-                    <p class="text-xs text-gray-500">Origin</p>
-                    <p class="font-medium">{{ viewingParcel.origin_town }}</p>
-                  </div>
+                  <div><p class="text-xs text-gray-500">Name</p><p class="font-medium">{{ viewingParcel.sender.full_name }}</p></div>
+                  <div><p class="text-xs text-gray-500">Phone</p><p class="font-mono">{{ viewingParcel.sender.phone }}</p></div>
+                  <div><p class="text-xs text-gray-500">Origin</p><p class="font-medium">{{ viewingParcel.origin_town }}</p></div>
                 </div>
               </div>
-
               <div>
                 <p class="text-xs font-semibold text-gray-700 mb-2">Recipient</p>
                 <div class="space-y-1.5 text-sm">
-                  <div>
-                    <p class="text-xs text-gray-500">Name</p>
-                    <p class="font-medium">{{ viewingParcel.recipient.full_name }}</p>
-                  </div>
-                  <div>
-                    <p class="text-xs text-gray-500">Phone</p>
-                    <p class="font-mono">{{ viewingParcel.recipient.phone }}</p>
-                  </div>
-                  <div>
-                    <p class="text-xs text-gray-500">Destination</p>
-                    <p class="font-medium">{{ viewingParcel.destination_town }}</p>
-                  </div>
+                  <div><p class="text-xs text-gray-500">Name</p><p class="font-medium">{{ viewingParcel.recipient.full_name }}</p></div>
+                  <div><p class="text-xs text-gray-500">Phone</p><p class="font-mono">{{ viewingParcel.recipient.phone }}</p></div>
+                  <div><p class="text-xs text-gray-500">Destination</p><p class="font-medium">{{ viewingParcel.destination_town }}</p></div>
                 </div>
               </div>
             </div>
 
-            <!-- Address -->
             <div class="pt-3 border-t">
               <p class="text-xs text-gray-500 mb-1">Delivery Address</p>
               <p class="text-sm text-gray-700">{{ viewingParcel.destination_address }}</p>
             </div>
 
-            <!-- Payment -->
             <div class="pt-3 border-t">
               <div class="flex items-baseline justify-between mb-2">
                 <p class="text-xs font-semibold text-gray-700">Payment</p>
                 <p class="text-lg font-bold text-gray-900">KES {{ parseFloat(viewingParcel.amount).toLocaleString() }}</p>
               </div>
               <div class="space-y-1.5 text-sm">
-                <div>
-                  <p class="text-xs text-gray-500">M-Pesa Number</p>
-                  <p class="font-mono">{{ viewingParcel.payment_phone }}</p>
-                </div>
+                <div><p class="text-xs text-gray-500">M-Pesa Number</p><p class="font-mono">{{ viewingParcel.payment_phone }}</p></div>
                 <div v-if="isPaid(viewingParcel)" class="flex items-center gap-1.5 text-green-600 pt-1">
                   <CheckCircle2 class="h-4 w-4" />
                   <span class="text-xs font-semibold">PAID - {{ getPaymentTransaction(viewingParcel).mpesa_receipt_number }}</span>
@@ -423,7 +578,6 @@ function formatDate(date) {
               </div>
             </div>
 
-            <!-- Footer -->
             <div class="flex items-center justify-between pt-4 border-t">
               <p class="text-xs text-gray-400">{{ formatDate(viewingParcel.created_at) }}</p>
               <div class="flex gap-2">
@@ -435,7 +589,7 @@ function formatDate(date) {
         </DialogContent>
       </Dialog>
 
-      <!-- Create Parcel Dialog -->
+      <!-- ── Create Parcel Dialog ───────────────────────────────── -->
       <Dialog v-model:open="createDialogOpen" :modal="true">
         <DialogContent class="sm:max-w-[900px] max-h-[90vh] overflow-y-auto" @interact-outside="(e) => e.preventDefault()">
           <DialogHeader>
@@ -444,70 +598,34 @@ function formatDate(date) {
 
           <form @submit.prevent="submit" class="space-y-6">
             <div class="grid md:grid-cols-2 gap-6">
-              <!-- Sender Details -->
               <div class="space-y-4 border rounded-lg p-4">
                 <h3 class="font-semibold text-base">Sender Details</h3>
                 <div class="grid grid-cols-2 gap-3">
-                  <div class="space-y-1.5">
-                    <Label class="text-sm">First Name</Label>
-                    <Input v-model="form.sender_first_name" :disabled="form.processing" required />
-                  </div>
-                  <div class="space-y-1.5">
-                    <Label class="text-sm">Last Name</Label>
-                    <Input v-model="form.sender_last_name" :disabled="form.processing" required />
-                  </div>
+                  <div class="space-y-1.5"><Label class="text-sm">First Name</Label><Input v-model="form.sender_first_name" :disabled="form.processing" required /></div>
+                  <div class="space-y-1.5"><Label class="text-sm">Last Name</Label><Input v-model="form.sender_last_name" :disabled="form.processing" required /></div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
-                  <div class="space-y-1.5">
-                    <Label class="text-sm">Phone</Label>
-                    <Input v-model="form.sender_phone" :disabled="form.processing" required />
-                  </div>
-                  <div class="space-y-1.5">
-                    <Label class="text-sm">National ID</Label>
-                    <Input v-model="form.sender_national_id" :disabled="form.processing" required />
-                  </div>
+                  <div class="space-y-1.5"><Label class="text-sm">Phone</Label><Input v-model="form.sender_phone" :disabled="form.processing" required /></div>
+                  <div class="space-y-1.5"><Label class="text-sm">National ID</Label><Input v-model="form.sender_national_id" :disabled="form.processing" required /></div>
                 </div>
-                <div class="space-y-1.5">
-                  <Label class="text-sm">Origin Town</Label>
-                  <Input v-model="form.origin_town" :disabled="form.processing" required />
-                </div>
+                <div class="space-y-1.5"><Label class="text-sm">Origin Town</Label><Input v-model="form.origin_town" :disabled="form.processing" required /></div>
               </div>
 
-              <!-- Recipient Details -->
               <div class="space-y-4 border rounded-lg p-4">
                 <h3 class="font-semibold text-base">Recipient Details</h3>
                 <div class="grid grid-cols-2 gap-3">
-                  <div class="space-y-1.5">
-                    <Label class="text-sm">First Name</Label>
-                    <Input v-model="form.recipient_first_name" :disabled="form.processing" required />
-                  </div>
-                  <div class="space-y-1.5">
-                    <Label class="text-sm">Last Name</Label>
-                    <Input v-model="form.recipient_last_name" :disabled="form.processing" required />
-                  </div>
+                  <div class="space-y-1.5"><Label class="text-sm">First Name</Label><Input v-model="form.recipient_first_name" :disabled="form.processing" required /></div>
+                  <div class="space-y-1.5"><Label class="text-sm">Last Name</Label><Input v-model="form.recipient_last_name" :disabled="form.processing" required /></div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
-                  <div class="space-y-1.5">
-                    <Label class="text-sm">Phone</Label>
-                    <Input v-model="form.recipient_phone" :disabled="form.processing" required />
-                  </div>
-                  <div class="space-y-1.5">
-                    <Label class="text-sm">National ID</Label>
-                    <Input v-model="form.recipient_national_id" :disabled="form.processing" required />
-                  </div>
+                  <div class="space-y-1.5"><Label class="text-sm">Phone</Label><Input v-model="form.recipient_phone" :disabled="form.processing" required /></div>
+                  <div class="space-y-1.5"><Label class="text-sm">National ID</Label><Input v-model="form.recipient_national_id" :disabled="form.processing" required /></div>
                 </div>
-                <div class="space-y-1.5">
-                  <Label class="text-sm">Destination Town</Label>
-                  <Input v-model="form.destination_town" :disabled="form.processing" required />
-                </div>
-                <div class="space-y-1.5">
-                  <Label class="text-sm">Destination Address</Label>
-                  <Textarea v-model="form.destination_address" :disabled="form.processing" rows="3" required />
-                </div>
+                <div class="space-y-1.5"><Label class="text-sm">Destination Town</Label><Input v-model="form.destination_town" :disabled="form.processing" required /></div>
+                <div class="space-y-1.5"><Label class="text-sm">Destination Address</Label><Textarea v-model="form.destination_address" :disabled="form.processing" rows="3" required /></div>
               </div>
             </div>
 
-            <!-- Parcel Details -->
             <div class="space-y-4 border rounded-lg p-4">
               <h3 class="font-semibold text-base">Parcel Details</h3>
               <div class="space-y-4">
@@ -520,14 +638,7 @@ function formatDate(date) {
                   <div class="space-y-2">
                     <div v-if="imagePreview" class="relative inline-block">
                       <img :src="imagePreview" alt="Preview" class="h-32 w-auto rounded-lg border" />
-                      <Button
-                          type="button"
-                          size="sm"
-                          variant="destructive"
-                          class="absolute -top-2 -right-2"
-                          @click="removeImage"
-                          :disabled="form.processing"
-                      >
+                      <Button type="button" size="sm" variant="destructive" class="absolute -top-2 -right-2" @click="removeImage" :disabled="form.processing">
                         <X class="h-3 w-3" />
                       </Button>
                     </div>
@@ -537,39 +648,23 @@ function formatDate(date) {
                         <span class="text-sm text-gray-600">Click to upload image</span>
                         <span class="text-xs text-gray-400">JPG, PNG, WEBP (Max 2MB)</span>
                       </label>
-                      <input
-                          id="create-image-input"
-                          type="file"
-                          accept="image/*"
-                          class="hidden"
-                          @change="handleImageChange"
-                          :disabled="form.processing"
-                      />
+                      <input id="create-image-input" type="file" accept="image/*" class="hidden" @change="handleImageChange" :disabled="form.processing" />
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- Payment Details -->
             <div class="space-y-4 border rounded-lg p-4">
               <h3 class="font-semibold text-base">Payment Details</h3>
               <div class="grid grid-cols-2 gap-4">
-                <div class="space-y-1.5">
-                  <Label class="text-sm">Amount (KES)</Label>
-                  <Input v-model="form.amount" type="number" step="0.01" :disabled="form.processing" required />
-                </div>
-                <div class="space-y-1.5">
-                  <Label class="text-sm">M-Pesa Phone Number</Label>
-                  <Input v-model="form.payment_phone" placeholder="0712345678" :disabled="form.processing" required />
-                </div>
+                <div class="space-y-1.5"><Label class="text-sm">Amount (KES)</Label><Input v-model="form.amount" type="number" step="0.01" :disabled="form.processing" required /></div>
+                <div class="space-y-1.5"><Label class="text-sm">M-Pesa Phone Number</Label><Input v-model="form.payment_phone" placeholder="0712345678" :disabled="form.processing" required /></div>
               </div>
             </div>
 
             <div class="flex justify-end gap-3 pt-2">
-              <Button type="button" variant="outline" @click="createDialogOpen = false" :disabled="form.processing">
-                Cancel
-              </Button>
+              <Button type="button" variant="outline" @click="createDialogOpen = false" :disabled="form.processing">Cancel</Button>
               <Button type="submit" size="lg" :disabled="form.processing">
                 <Loader2 v-if="form.processing" class="mr-2 h-4 w-4 animate-spin" />
                 {{ form.processing ? 'Saving...' : 'Save Parcel' }}
@@ -579,7 +674,7 @@ function formatDate(date) {
         </DialogContent>
       </Dialog>
 
-      <!-- Edit Parcel Dialog -->
+      <!-- ── Edit Parcel Dialog ─────────────────────────────────── -->
       <Dialog v-model:open="editDialogOpen" :modal="true">
         <DialogContent class="sm:max-w-[900px] max-h-[90vh] overflow-y-auto" @interact-outside="(e) => e.preventDefault()">
           <DialogHeader>
@@ -588,70 +683,34 @@ function formatDate(date) {
 
           <form @submit.prevent="updateParcel" class="space-y-6">
             <div class="grid md:grid-cols-2 gap-6">
-              <!-- Sender Details -->
               <div class="space-y-4 border rounded-lg p-4">
                 <h3 class="font-semibold text-base">Sender Details</h3>
                 <div class="grid grid-cols-2 gap-3">
-                  <div class="space-y-1.5">
-                    <Label class="text-sm">First Name</Label>
-                    <Input v-model="editForm.sender_first_name" :disabled="editForm.processing" required />
-                  </div>
-                  <div class="space-y-1.5">
-                    <Label class="text-sm">Last Name</Label>
-                    <Input v-model="editForm.sender_last_name" :disabled="editForm.processing" required />
-                  </div>
+                  <div class="space-y-1.5"><Label class="text-sm">First Name</Label><Input v-model="editForm.sender_first_name" :disabled="editForm.processing" required /></div>
+                  <div class="space-y-1.5"><Label class="text-sm">Last Name</Label><Input v-model="editForm.sender_last_name" :disabled="editForm.processing" required /></div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
-                  <div class="space-y-1.5">
-                    <Label class="text-sm">Phone</Label>
-                    <Input v-model="editForm.sender_phone" :disabled="editForm.processing" required />
-                  </div>
-                  <div class="space-y-1.5">
-                    <Label class="text-sm">National ID</Label>
-                    <Input v-model="editForm.sender_national_id" :disabled="editForm.processing" required />
-                  </div>
+                  <div class="space-y-1.5"><Label class="text-sm">Phone</Label><Input v-model="editForm.sender_phone" :disabled="editForm.processing" required /></div>
+                  <div class="space-y-1.5"><Label class="text-sm">National ID</Label><Input v-model="editForm.sender_national_id" :disabled="editForm.processing" required /></div>
                 </div>
-                <div class="space-y-1.5">
-                  <Label class="text-sm">Origin Town</Label>
-                  <Input v-model="editForm.origin_town" :disabled="editForm.processing" required />
-                </div>
+                <div class="space-y-1.5"><Label class="text-sm">Origin Town</Label><Input v-model="editForm.origin_town" :disabled="editForm.processing" required /></div>
               </div>
 
-              <!-- Recipient Details -->
               <div class="space-y-4 border rounded-lg p-4">
                 <h3 class="font-semibold text-base">Recipient Details</h3>
                 <div class="grid grid-cols-2 gap-3">
-                  <div class="space-y-1.5">
-                    <Label class="text-sm">First Name</Label>
-                    <Input v-model="editForm.recipient_first_name" :disabled="editForm.processing" required />
-                  </div>
-                  <div class="space-y-1.5">
-                    <Label class="text-sm">Last Name</Label>
-                    <Input v-model="editForm.recipient_last_name" :disabled="editForm.processing" required />
-                  </div>
+                  <div class="space-y-1.5"><Label class="text-sm">First Name</Label><Input v-model="editForm.recipient_first_name" :disabled="editForm.processing" required /></div>
+                  <div class="space-y-1.5"><Label class="text-sm">Last Name</Label><Input v-model="editForm.recipient_last_name" :disabled="editForm.processing" required /></div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
-                  <div class="space-y-1.5">
-                    <Label class="text-sm">Phone</Label>
-                    <Input v-model="editForm.recipient_phone" :disabled="editForm.processing" required />
-                  </div>
-                  <div class="space-y-1.5">
-                    <Label class="text-sm">National ID</Label>
-                    <Input v-model="editForm.recipient_national_id" :disabled="editForm.processing" required />
-                  </div>
+                  <div class="space-y-1.5"><Label class="text-sm">Phone</Label><Input v-model="editForm.recipient_phone" :disabled="editForm.processing" required /></div>
+                  <div class="space-y-1.5"><Label class="text-sm">National ID</Label><Input v-model="editForm.recipient_national_id" :disabled="editForm.processing" required /></div>
                 </div>
-                <div class="space-y-1.5">
-                  <Label class="text-sm">Destination Town</Label>
-                  <Input v-model="editForm.destination_town" :disabled="editForm.processing" required />
-                </div>
-                <div class="space-y-1.5">
-                  <Label class="text-sm">Destination Address</Label>
-                  <Textarea v-model="editForm.destination_address" :disabled="editForm.processing" rows="3" required />
-                </div>
+                <div class="space-y-1.5"><Label class="text-sm">Destination Town</Label><Input v-model="editForm.destination_town" :disabled="editForm.processing" required /></div>
+                <div class="space-y-1.5"><Label class="text-sm">Destination Address</Label><Textarea v-model="editForm.destination_address" :disabled="editForm.processing" rows="3" required /></div>
               </div>
             </div>
 
-            <!-- Parcel Details -->
             <div class="space-y-4 border rounded-lg p-4">
               <h3 class="font-semibold text-base">Parcel Details</h3>
               <div class="space-y-4">
@@ -664,14 +723,7 @@ function formatDate(date) {
                   <div class="space-y-2">
                     <div v-if="editImagePreview && !editForm.remove_image" class="relative inline-block">
                       <img :src="editImagePreview" alt="Preview" class="h-32 w-auto rounded-lg border" />
-                      <Button
-                          type="button"
-                          size="sm"
-                          variant="destructive"
-                          class="absolute -top-2 -right-2"
-                          @click="removeEditImage"
-                          :disabled="editForm.processing"
-                      >
+                      <Button type="button" size="sm" variant="destructive" class="absolute -top-2 -right-2" @click="removeEditImage" :disabled="editForm.processing">
                         <X class="h-3 w-3" />
                       </Button>
                     </div>
@@ -681,43 +733,24 @@ function formatDate(date) {
                         <span class="text-sm text-gray-600">Click to upload image</span>
                         <span class="text-xs text-gray-400">JPG, PNG, WEBP (Max 2MB)</span>
                       </label>
-                      <input
-                          id="edit-image-input"
-                          type="file"
-                          accept="image/*"
-                          class="hidden"
-                          @change="handleEditImageChange"
-                          :disabled="editForm.processing"
-                      />
+                      <input id="edit-image-input" type="file" accept="image/*" class="hidden" @change="handleEditImageChange" :disabled="editForm.processing" />
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- Payment Details with Status -->
             <div class="space-y-4 border rounded-lg p-4">
               <h3 class="font-semibold text-base">Payment Details</h3>
               <div class="grid grid-cols-3 gap-4">
-                <div class="space-y-1.5">
-                  <Label class="text-sm">Amount (KES)</Label>
-                  <Input v-model="editForm.amount" type="number" step="0.01" :disabled="editForm.processing" required />
-                </div>
-                <div class="space-y-1.5">
-                  <Label class="text-sm">M-Pesa Phone Number</Label>
-                  <Input v-model="editForm.payment_phone" placeholder="0712345678" :disabled="editForm.processing" required />
-                </div>
+                <div class="space-y-1.5"><Label class="text-sm">Amount (KES)</Label><Input v-model="editForm.amount" type="number" step="0.01" :disabled="editForm.processing" required /></div>
+                <div class="space-y-1.5"><Label class="text-sm">M-Pesa Phone Number</Label><Input v-model="editForm.payment_phone" placeholder="0712345678" :disabled="editForm.processing" required /></div>
                 <div class="space-y-1.5">
                   <Label class="text-sm">Status</Label>
                   <Select v-model="editForm.status" :disabled="editForm.processing">
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="pending_payment">Pending Payment</SelectItem>
-                      <SelectItem value="received">Received</SelectItem>
-                      <SelectItem value="in_transit">In Transit</SelectItem>
-                      <SelectItem value="delivered">Delivered</SelectItem>
+                      <SelectItem v-for="opt in STATUS_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -725,9 +758,7 @@ function formatDate(date) {
             </div>
 
             <div class="flex justify-end gap-3 pt-2">
-              <Button type="button" variant="outline" @click="editDialogOpen = false" :disabled="editForm.processing">
-                Cancel
-              </Button>
+              <Button type="button" variant="outline" @click="editDialogOpen = false" :disabled="editForm.processing">Cancel</Button>
               <Button type="submit" size="lg" :disabled="editForm.processing">
                 <Loader2 v-if="editForm.processing" class="mr-2 h-4 w-4 animate-spin" />
                 {{ editForm.processing ? 'Updating...' : 'Update Parcel' }}
