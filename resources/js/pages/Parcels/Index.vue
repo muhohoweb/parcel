@@ -346,13 +346,13 @@ function formatDate(date) {
             </div>
 
             <!-- Description & Image (if present) -->
-            <div v-if="viewingParcel.description || viewingParcel.image_path" class="space-y-3 pt-3 border-t">
-              <div v-if="viewingParcel.description">
+            <div v-if="viewingParcel.description || viewingParcel.image_path" class="flex gap-4 pt-3 border-t">
+              <div v-if="viewingParcel.image_path" class="shrink-0">
+                <img :src="`/${viewingParcel.image_path}`" alt="Parcel" class="rounded-md h-28 w-auto border object-cover" />
+              </div>
+              <div v-if="viewingParcel.description" class="flex flex-col justify-center">
                 <p class="text-xs text-gray-500 mb-1">Description</p>
                 <p class="text-sm text-gray-700">{{ viewingParcel.description }}</p>
-              </div>
-              <div v-if="viewingParcel.image_path">
-                <img :src="`/${viewingParcel.image_path}`" alt="Parcel" class="rounded-md max-h-40 w-auto border" />
               </div>
             </div>
 
